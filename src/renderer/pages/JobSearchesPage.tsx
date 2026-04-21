@@ -56,6 +56,7 @@ import type {
     SerializedJobSearch,
 } from '@shared/job-search';
 import { ALL_JOB_SOURCES } from '@shared/job-search';
+import { SourceGrid } from '../components/SourceGrid';
 
 interface Props {
     onCandidateImported: (appRec: ApplicationRecord) => void;
@@ -434,7 +435,8 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                     value={sourceFilter}
                     onChange={setSourceFilter}
                     clearable
-                    w={200}
+                    w={220}
+                    hidePickedOptions
                 />
                 <Select
                     placeholder={t('candidates.filterStatus')}
@@ -766,23 +768,17 @@ function SearchFormDrawer({
             <form onSubmit={form.onSubmit(submit)}>
                 <Stack gap="md">
                     <TextInput label={t('searchForm.name')} required {...form.getInputProps('label')} />
-                    <MultiSelect
-                        label={t('searchForm.sources')}
-                        description={t('searchForm.sourcesHint')}
-                        data={ALL_JOB_SOURCES.map((s) => ({
-                            value: s,
-                            label: t(`source.${s}`),
-                        }))}
-                        {...form.getInputProps('sources')}
-                        searchable
-                        clearable
-                    />
-                    <Stack gap={4}>
-                        {form.values.sources.map((s) => (
-                            <Text key={s} size="xs" c="dimmed">
-                                <b>{t(`source.${s}`)}:</b> {t(`sourceDesc.${s}`)}
-                            </Text>
-                        ))}
+                    <Stack gap={6}>
+                        <Text size="sm" fw={500}>
+                            {t('searchForm.sources')}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                            {t('searchForm.sourcesHint')}
+                        </Text>
+                        <SourceGrid
+                            value={form.values.sources}
+                            onChange={(v) => form.setFieldValue('sources', v)}
+                        />
                     </Stack>
                     <TextInput
                         label={

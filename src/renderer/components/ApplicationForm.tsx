@@ -37,6 +37,7 @@ import {
     STATUS_ORDER,
 } from '@shared/application';
 import type { ApplicationRecord } from '../../preload/index';
+import { StatusSelector } from './StatusSelector';
 
 interface Props {
     opened: boolean;
@@ -386,14 +387,17 @@ export function ApplicationFormModal({
                                         />
                                     </SimpleGrid>
                                     <SimpleGrid cols={2} spacing="sm">
-                                        <Select
-                                            label={t('form.statusLabel')}
-                                            data={STATUS_ORDER.map((s) => ({
-                                                value: s,
-                                                label: t(`status.${s}`),
-                                            }))}
-                                            {...form.getInputProps('status')}
-                                        />
+                                        <Stack gap={4}>
+                                            <Text size="sm" fw={500}>
+                                                {t('form.statusLabel')}
+                                            </Text>
+                                            <div>
+                                                <StatusSelector
+                                                    value={form.values.status}
+                                                    onChange={(s) => form.setFieldValue('status', s)}
+                                                />
+                                            </div>
+                                        </Stack>
                                         <DateInput
                                             label={t('form.appliedAt')}
                                             clearable

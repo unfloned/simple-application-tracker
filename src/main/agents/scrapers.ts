@@ -18,6 +18,10 @@ export interface ScrapeContext {
 const USER_AGENT =
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
+const PER_SOURCE_LIMIT = 500;
+const ARBEITNOW_MAX_PAGES = 10;
+const HACKERNEWS_MAX_COMMENTS = 400;
+
 async function fetchText(url: string, accept = 'text/html'): Promise<string> {
     const response = await fetch(url, {
         headers: {
@@ -46,6 +50,7 @@ function decodeEntities(s: string): string {
         .replace(/&#39;/g, "'")
         .replace(/&apos;/g, "'")
         .replace(/&nbsp;/g, ' ')
+        .replace(/&#x2F;/g, '/')
         .replace(/&uuml;/g, 'ue')
         .replace(/&auml;/g, 'ae')
         .replace(/&ouml;/g, 'oe')
@@ -128,7 +133,7 @@ async function scrapeGermanTechJobs(ctx: ScrapeContext): Promise<RawJobListing[]
             summary: stripTags(item.description).slice(0, 400),
         });
 
-        if (results.length >= 30) break;
+        if (results.length >= PER_SOURCE_LIMIT) break;
     }
 
     return results;
@@ -152,9 +157,9 @@ interface RemotiveResponse {
 async function scrapeRemotive(ctx: ScrapeContext): Promise<RawJobListing[]> {
     const search = encodeURIComponent(ctx.keywords || 'typescript');
     const data = await fetchJson<RemotiveResponse>(
-        `https://remotive.com/api/remote-jobs?search=${search}&limit=30`,
+        `https://remotive.com/api/remote-jobs?search=${search}&limit=1000`,
     );
-    return (data.jobs ?? []).map((job) => ({
+    return (data.jobs ?? []).slice(0, PER_SOURCE_LIMIT).map((job) => ({
         sourceUrl: job.url,
         sourceKey: `remotive:${job.id}`,
         title: job.title,
@@ -179,23 +184,43 @@ interface ArbeitnowResponse {
 }
 
 async function scrapeArbeitnow(ctx: ScrapeContext): Promise<RawJobListing[]> {
-    const data = await fetchJson<ArbeitnowResponse>('https://arbeitnow.com/api/job-board-api');
     const results: RawJobListing[] = [];
+    const seenSlugs = new Set<string>();
 
-    for (const job of data.data ?? []) {
-        const text = `${job.title} ${job.description} ${(job.tags || []).join(' ')}`;
-        if (!matchesKeywords(text, ctx.keywords)) continue;
+    for (let page = 1; page <= ARBEITNOW_MAX_PAGES; page++) {
+        if (results.length >= PER_SOURCE_LIMIT) break;
+        let data: ArbeitnowResponse;
+        try {
+            data = await fetchJson<ArbeitnowResponse>(
+                `https://arbeitnow.com/api/job-board-api?page=${page}`,
+            );
+        } catch {
+            break;
+        }
+        const jobs = data.data ?? [];
+        if (jobs.length === 0) break;
 
-        results.push({
-            sourceUrl: job.url,
-            sourceKey: `arbeitnow:${job.slug}`,
-            title: job.title,
-            company: job.company_name,
-            location: job.remote ? 'Remote' : job.location || '',
-            summary: stripTags(job.description).slice(0, 400),
-        });
+        let addedThisPage = 0;
+        for (const job of jobs) {
+            if (seenSlugs.has(job.slug)) continue;
+            seenSlugs.add(job.slug);
 
-        if (results.length >= 30) break;
+            const text = `${job.title} ${job.description} ${(job.tags || []).join(' ')}`;
+            if (!matchesKeywords(text, ctx.keywords)) continue;
+
+            results.push({
+                sourceUrl: job.url,
+                sourceKey: `arbeitnow:${job.slug}`,
+                title: job.title,
+                company: job.company_name,
+                location: job.remote ? 'Remote' : job.location || '',
+                summary: stripTags(job.description).slice(0, 400),
+            });
+            addedThisPage += 1;
+            if (results.length >= PER_SOURCE_LIMIT) break;
+        }
+
+        if (addedThisPage === 0 && jobs.length < 100) break;
     }
 
     return results;
@@ -234,7 +259,7 @@ async function scrapeRemoteOk(ctx: ScrapeContext): Promise<RawJobListing[]> {
             summary: stripTags(job.description || '').slice(0, 400),
         });
 
-        if (results.length >= 30) break;
+        if (results.length >= PER_SOURCE_LIMIT) break;
     }
 
     return results;
@@ -262,7 +287,114 @@ async function scrapeWeWorkRemotely(ctx: ScrapeContext): Promise<RawJobListing[]
             summary: stripTags(item.description).slice(0, 400),
         });
 
-        if (results.length >= 20) break;
+        if (results.length >= PER_SOURCE_LIMIT) break;
+    }
+
+    return results;
+}
+
+interface HackerNewsUser {
+    submitted: number[];
+}
+
+interface HackerNewsItem {
+    id: number;
+    title?: string;
+    text?: string;
+    kids?: number[];
+    deleted?: boolean;
+    dead?: boolean;
+    by?: string;
+}
+
+async function scrapeHackerNews(ctx: ScrapeContext): Promise<RawJobListing[]> {
+    const user = await fetchJson<HackerNewsUser>(
+        'https://hacker-news.firebaseio.com/v0/user/whoishiring.json',
+    );
+    const recent = (user.submitted ?? []).slice(0, 12);
+
+    let hiringThreadId: number | null = null;
+    for (const id of recent) {
+        const item = await fetchJson<HackerNewsItem>(
+            `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
+        );
+        if (item?.title && /who is hiring/i.test(item.title)) {
+            hiringThreadId = item.id;
+            break;
+        }
+    }
+
+    if (!hiringThreadId) return [];
+
+    const thread = await fetchJson<HackerNewsItem>(
+        `https://hacker-news.firebaseio.com/v0/item/${hiringThreadId}.json`,
+    );
+    const kids = (thread.kids ?? []).slice(0, HACKERNEWS_MAX_COMMENTS);
+
+    const results: RawJobListing[] = [];
+
+    for (const kidId of kids) {
+        if (results.length >= PER_SOURCE_LIMIT) break;
+        try {
+            const kid = await fetchJson<HackerNewsItem>(
+                `https://hacker-news.firebaseio.com/v0/item/${kidId}.json`,
+            );
+            if (!kid || kid.deleted || kid.dead || !kid.text) continue;
+
+            const full = stripTags(kid.text);
+            if (!matchesKeywords(full, ctx.keywords)) continue;
+
+            const firstLine = full.split(/\.\s|[\u2022\n]/)[0].trim();
+            const pipeParts = firstLine.split(/\s*\|\s*/).map((s) => s.trim());
+            const company = pipeParts[0] || '';
+            const roleOrLocation = pipeParts.slice(1).join(' | ');
+            const location = /remote/i.test(full) ? 'Remote' : roleOrLocation.slice(0, 60);
+
+            results.push({
+                sourceUrl: `https://news.ycombinator.com/item?id=${kid.id}`,
+                sourceKey: `hackernews:${kid.id}`,
+                title: roleOrLocation.slice(0, 100) || firstLine.slice(0, 100),
+                company: company.slice(0, 80),
+                location,
+                summary: full.slice(0, 500),
+            });
+        } catch {
+            continue;
+        }
+    }
+
+    return results;
+}
+
+async function scrapeIndeed(ctx: ScrapeContext): Promise<RawJobListing[]> {
+    const keywords = encodeURIComponent(ctx.keywords || 'TypeScript');
+    const location = encodeURIComponent(ctx.remoteOnly ? 'Remote' : ctx.locationFilter || '');
+    const xml = await fetchText(`https://de.indeed.com/rss?q=${keywords}&l=${location}`);
+    const items = parseRss(xml);
+    const results: RawJobListing[] = [];
+
+    for (const item of items) {
+        const combined = `${item.title} ${item.description}`;
+        if (!matchesKeywords(combined, ctx.keywords)) continue;
+
+        const titleMatch = /^(.+?)\s+-\s+(.+?)\s+-\s+(.+)$/.exec(item.title);
+        const title = titleMatch ? titleMatch[1].trim() : item.title;
+        const company = titleMatch ? titleMatch[2].trim() : '';
+        const loc = titleMatch ? titleMatch[3].trim() : '';
+
+        const jkMatch = /[?&]jk=([^&]+)/.exec(item.link);
+        const id = jkMatch ? jkMatch[1] : item.link.split('/').pop() || item.link;
+
+        results.push({
+            sourceUrl: item.link,
+            sourceKey: `indeed:${id}`,
+            title,
+            company,
+            location: loc,
+            summary: stripTags(item.description).slice(0, 400),
+        });
+
+        if (results.length >= PER_SOURCE_LIMIT) break;
     }
 
     return results;
@@ -291,6 +423,8 @@ export async function runScraper(source: JobSource, ctx: ScrapeContext): Promise
         if (source === 'arbeitnow') return await scrapeArbeitnow(ctx);
         if (source === 'remoteok') return await scrapeRemoteOk(ctx);
         if (source === 'weworkremotely') return await scrapeWeWorkRemotely(ctx);
+        if (source === 'hackernews') return await scrapeHackerNews(ctx);
+        if (source === 'indeed') return await scrapeIndeed(ctx);
         if (source === 'url') return await scrapeUrl(ctx);
     } catch (err) {
         console.error(`[scraper:${source}]`, (err as Error).message);

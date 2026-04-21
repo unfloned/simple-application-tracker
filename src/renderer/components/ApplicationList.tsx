@@ -32,6 +32,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApplicationStatus, STATUS_ORDER } from '@shared/application';
 import type { ApplicationRecord } from '../../preload/index';
+import { StatusSelector } from './StatusSelector';
 
 interface Props {
     rows: ApplicationRecord[];
@@ -299,29 +300,10 @@ export function ApplicationList({
                                     onClick={() => onEdit(r)}
                                 >
                                     <Table.Td onClick={(e) => e.stopPropagation()}>
-                                        <Select
-                                            size="xs"
+                                        <StatusSelector
                                             value={r.status}
-                                            data={statusOptions}
-                                            onChange={(value) => {
-                                                if (value)
-                                                    onStatusChange(r.id, value as ApplicationStatus);
-                                            }}
-                                            w={160}
-                                            allowDeselect={false}
-                                            renderOption={({ option }) => (
-                                                <Group gap={6}>
-                                                    <Box
-                                                        w={8}
-                                                        h={8}
-                                                        style={{
-                                                            borderRadius: '50%',
-                                                            backgroundColor: `var(--mantine-color-${STATUS_COLOR[option.value as ApplicationStatus]}-5)`,
-                                                        }}
-                                                    />
-                                                    <Text size="xs">{option.label}</Text>
-                                                </Group>
-                                            )}
+                                            onChange={(status) => onStatusChange(r.id, status)}
+                                            compact
                                         />
                                     </Table.Td>
                                     <Table.Td>

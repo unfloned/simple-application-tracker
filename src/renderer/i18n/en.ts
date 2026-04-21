@@ -187,6 +187,8 @@ export const en = {
         arbeitnow: 'Arbeitnow (DE/EN, Remote)',
         remoteok: 'RemoteOK (EN, Remote)',
         weworkremotely: 'We Work Remotely (EN)',
+        hackernews: 'HackerNews Who is Hiring (EN)',
+        indeed: 'Indeed DE (experimental)',
         url: 'Single URL',
     },
     sourceDesc: {
@@ -195,6 +197,8 @@ export const en = {
         arbeitnow: 'Remote/hybrid jobs in Germany, public API',
         remoteok: 'Remote jobs worldwide, public API',
         weworkremotely: 'Remote programming jobs, RSS feed',
+        hackernews: 'Latest Who is Hiring thread on Hacker News',
+        indeed: 'Indeed RSS feed - rate-limited, may return 0 results',
         url: 'Scrape a single job posting URL',
     },
     profileDrawer: {

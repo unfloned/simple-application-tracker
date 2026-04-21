@@ -17,6 +17,7 @@ import { ALL_JOB_SOURCES, INTERVAL_MS } from '@shared/job-search';
 import { runScraper } from './scrapers';
 import { scoreJobListing, ScoringProfile } from './scorer';
 import { createApplication } from '../db';
+import { unloadModel } from '../llm';
 
 interface AgentConfig extends ScoringProfile {
     autoImportThreshold: number;
@@ -554,6 +555,9 @@ export async function runSearchNow(
         );
 
     getDb().prepare('UPDATE job_searches SET lastRunAt = ? WHERE id = ?').run(finishedAt, searchId);
+
+    // Free the LLM so CPU/VRAM comes down once the run is done.
+    unloadModel().catch(() => { });
 
     deps.sendEvent('agents:runFinished', {
         searchId,

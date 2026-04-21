@@ -4,6 +4,8 @@ export type JobSource =
     | 'arbeitnow'
     | 'remoteok'
     | 'weworkremotely'
+    | 'hackernews'
+    | 'indeed'
     | 'url';
 
 export const ALL_JOB_SOURCES: JobSource[] = [
@@ -12,6 +14,8 @@ export const ALL_JOB_SOURCES: JobSource[] = [
     'arbeitnow',
     'remoteok',
     'weworkremotely',
+    'hackernews',
+    'indeed',
     'url',
 ];
 
@@ -21,6 +25,8 @@ export const JOB_SOURCE_LABEL: Record<JobSource, string> = {
     arbeitnow: 'Arbeitnow (DE/EN, Remote)',
     remoteok: 'RemoteOK (EN, Remote)',
     weworkremotely: 'We Work Remotely (EN)',
+    hackernews: 'HackerNews Who is Hiring (EN)',
+    indeed: 'Indeed DE (experimental)',
     url: 'Single URL',
 };
 
@@ -30,6 +36,8 @@ export const JOB_SOURCE_DESCRIPTION: Record<JobSource, string> = {
     arbeitnow: 'Remote/hybrid jobs in Germany, public API',
     remoteok: 'Remote jobs worldwide, public API',
     weworkremotely: 'Remote programming jobs, RSS feed',
+    hackernews: 'Latest Who is Hiring thread on Hacker News',
+    indeed: 'Indeed RSS feed - rate-limited, may return 0 results',
     url: 'Scrape a single job posting URL',
 };
 

@@ -100,6 +100,21 @@ export async function startOllama(): Promise<StartResult> {
     return { started: false, method: 'cli', message: '`ollama serve` gestartet, aber keine Antwort nach 10s.' };
 }
 
+export async function unloadModel(): Promise<{ ok: boolean }> {
+    const { ollamaUrl, ollamaModel } = getLlmConfig();
+    try {
+        await fetch(`${ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: ollamaModel, keep_alive: 0, prompt: '' }),
+            signal: AbortSignal.timeout(5000),
+        });
+        return { ok: true };
+    } catch {
+        return { ok: false };
+    }
+}
+
 export async function pullModel(modelName: string): Promise<{ ok: boolean; message?: string }> {
     const { ollamaUrl } = getLlmConfig();
     try {
