@@ -270,11 +270,11 @@ export function App() {
             padding="lg"
         >
             <AppShell.Header
-                style={{ WebkitAppRegion: 'drag', borderBottom: 'none' } as any}
+                style={{ WebkitAppRegion: 'drag', borderBottom: 'none' }}
             >
                 <Group h="100%" px="md" pl={80} justify="space-between">
                     <div />
-                    <div style={{ WebkitAppRegion: 'no-drag' } as any}>
+                    <div style={{ WebkitAppRegion: 'no-drag' }}>
                         <Group gap="xs">
                             <Tooltip label={t('cmd.placeholder') + ' (Cmd+K)'}>
                                 <ActionIcon

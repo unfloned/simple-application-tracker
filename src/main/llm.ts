@@ -2,7 +2,17 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import Store from 'electron-store';
 import type { ApplicationInput, ExtractedJobData, FitAssessment } from '@shared/application';
+import { stripHtmlPage } from '@shared/html';
 import { getAgentProfile } from './agents';
+import {
+    FIT_SCORE_MAX,
+    FIT_SCORE_MIN,
+    LLM_PAGE_CHAR_LIMIT,
+    OLLAMA_FETCH_TIMEOUT_MS,
+    OLLAMA_START_POLL_APP_ATTEMPTS,
+    OLLAMA_START_POLL_CLI_ATTEMPTS,
+    OLLAMA_START_POLL_MS,
+} from './constants';
 
 interface Config {
     ollamaUrl: string;
@@ -73,12 +83,16 @@ export async function startOllama(): Promise<StartResult> {
 
     if (existsSync('/Applications/Ollama.app')) {
         spawn('open', ['-a', 'Ollama'], { detached: true, stdio: 'ignore' }).unref();
-        for (let i = 0; i < 15; i++) {
-            await new Promise((r) => setTimeout(r, 1000));
+        for (let i = 0; i < OLLAMA_START_POLL_APP_ATTEMPTS; i++) {
+            await new Promise((r) => setTimeout(r, OLLAMA_START_POLL_MS));
             const status = await checkLlmStatus();
             if (status.running) return { started: true, method: 'app' };
         }
-        return { started: false, method: 'app', message: 'Ollama-App gestartet, aber keine Antwort nach 15s.' };
+        return {
+            started: false,
+            method: 'app',
+            message: `Ollama app launched but did not respond within ${OLLAMA_START_POLL_APP_ATTEMPTS}s.`,
+        };
     }
 
     const cli = findOllamaCli();
@@ -87,17 +101,21 @@ export async function startOllama(): Promise<StartResult> {
             started: false,
             method: 'none',
             message:
-                'Kein Ollama gefunden. Installiere via `brew install ollama` oder lade die Desktop-App von https://ollama.com/download.',
+                'Ollama not found. Install via `brew install ollama` or the desktop app from https://ollama.com/download.',
         };
     }
 
     spawn(cli, ['serve'], { detached: true, stdio: 'ignore' }).unref();
-    for (let i = 0; i < 10; i++) {
-        await new Promise((r) => setTimeout(r, 1000));
+    for (let i = 0; i < OLLAMA_START_POLL_CLI_ATTEMPTS; i++) {
+        await new Promise((r) => setTimeout(r, OLLAMA_START_POLL_MS));
         const status = await checkLlmStatus();
         if (status.running) return { started: true, method: 'cli' };
     }
-    return { started: false, method: 'cli', message: '`ollama serve` gestartet, aber keine Antwort nach 10s.' };
+    return {
+        started: false,
+        method: 'cli',
+        message: `\`ollama serve\` launched but did not respond within ${OLLAMA_START_POLL_CLI_ATTEMPTS}s.`,
+    };
 }
 
 export async function unloadModel(): Promise<{ ok: boolean }> {
@@ -139,24 +157,9 @@ async function fetchJobPage(url: string): Promise<string> {
             'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
         },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status} beim Abrufen der URL`);
+    if (!response.ok) throw new Error(`HTTP ${response.status} fetching URL`);
     const html = await response.text();
-    return stripHtml(html).slice(0, 8000);
-}
-
-function stripHtml(html: string): string {
-    return html
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
-        .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/\s+/g, ' ')
-        .trim();
+    return stripHtmlPage(html).slice(0, LLM_PAGE_CHAR_LIMIT);
 }
 
 const EXTRACTION_PROMPT = `Du analysierst eine deutsche Stellenanzeige und lieferst eine JSON-Zusammenfassung.
@@ -197,7 +200,7 @@ export async function extractJobData(url: string): Promise<ExtractedJobData> {
 
     if (!response.ok) {
         throw new Error(
-            `Ollama nicht erreichbar (${response.status}). Läuft \`ollama serve\`? Modell \`${config.ollamaModel}\` installiert?`,
+            `Ollama unreachable (${response.status}). Is \`ollama serve\` running? Is the model \`${config.ollamaModel}\` installed?`,
         );
     }
 
@@ -220,7 +223,7 @@ export async function extractJobData(url: string): Promise<ExtractedJobData> {
             source: parsed.source ?? '',
         };
     } catch (err) {
-        throw new Error(`LLM-Antwort konnte nicht als JSON gelesen werden: ${raw.slice(0, 200)}`);
+        throw new Error(`LLM response could not be parsed as JSON: ${raw.slice(0, 200)}`);
     }
 }
 
@@ -287,7 +290,7 @@ ${input.jobDescription || ''}`;
                 format: 'json',
                 options: { temperature: 0.2 },
             }),
-            signal: AbortSignal.timeout(60000),
+            signal: AbortSignal.timeout(OLLAMA_FETCH_TIMEOUT_MS),
         });
         if (!response.ok) {
             throw new Error(`Ollama HTTP ${response.status}`);
@@ -295,10 +298,10 @@ ${input.jobDescription || ''}`;
         const json = (await response.json()) as { response: string };
         const parsed = JSON.parse(json.response.trim()) as FitAssessment;
         return {
-            score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
+            score: Math.max(FIT_SCORE_MIN, Math.min(FIT_SCORE_MAX, Number(parsed.score) || 0)),
             reason: String(parsed.reason || '').slice(0, 500),
         };
     } catch (err) {
-        throw new Error(`Passungsprüfung fehlgeschlagen: ${(err as Error).message}`);
+        throw new Error(`Fit check failed: ${(err as Error).message}`);
     }
 }

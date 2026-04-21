@@ -153,7 +153,7 @@ export function Sidebar({ applicationsCount, candidatesCount }: Props) {
                     px="sm"
                     py="xs"
                     mb={4}
-                    style={{ WebkitAppRegion: 'drag', minHeight: 30 } as any}
+                    style={{ WebkitAppRegion: 'drag', minHeight: 30 }}
                 >
                     <Text
                         fw={700}

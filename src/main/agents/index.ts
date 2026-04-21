@@ -18,6 +18,53 @@ import { runScraper } from './scrapers';
 import { scoreJobListing, ScoringProfile } from './scorer';
 import { createApplication } from '../db';
 import { unloadModel } from '../llm';
+import { CANDIDATE_SEARCH_LIMIT } from '../constants';
+
+interface JobSearchRow {
+    id: string;
+    label: string;
+    keywords: string;
+    sources: string;
+    locationFilter: string;
+    remoteOnly: number;
+    minSalary: number;
+    enabled: number;
+    interval: string;
+    lastRunAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface JobCandidateRow {
+    id: string;
+    searchId: string;
+    source: string;
+    sourceUrl: string;
+    title: string;
+    company: string;
+    location: string;
+    summary: string;
+    score: number;
+    scoreReason: string;
+    status: string;
+    favorite: number;
+    importedApplicationId: string | null;
+    discoveredAt: string;
+    dedupKey: string;
+}
+
+interface AgentRunRow {
+    id: string;
+    searchId: string;
+    searchLabel: string;
+    startedAt: string;
+    finishedAt: string | null;
+    sources: string;
+    scanned: number;
+    added: number;
+    error: string | null;
+    canceled: number;
+}
 
 interface AgentConfig extends ScoringProfile {
     autoImportThreshold: number;
@@ -45,9 +92,10 @@ export function getAgentProfile(): AgentConfig {
 }
 
 export function setAgentProfile(profile: Partial<AgentConfig>): AgentConfig {
-    for (const key of Object.keys(profile) as (keyof AgentConfig)[]) {
-        const value = profile[key];
-        if (value !== undefined) profileStore.set(key, value as never);
+    for (const [key, value] of Object.entries(profile)) {
+        if (value === undefined) continue;
+        const k = key as keyof AgentConfig;
+        profileStore.set(k, value as AgentConfig[typeof k]);
     }
     return getAgentProfile();
 }
@@ -189,7 +237,8 @@ function computeNextRun(lastRunAt: string | null, interval: ScheduleInterval): s
     return new Date(base + INTERVAL_MS[interval]).toISOString();
 }
 
-function toSerializedSearch(row: any): SerializedJobSearch {
+function toSerializedSearch(row: JobSearchRow): SerializedJobSearch {
+    const interval = (row.interval as ScheduleInterval) ?? '6h';
     return {
         id: row.id,
         label: row.label,
@@ -199,9 +248,9 @@ function toSerializedSearch(row: any): SerializedJobSearch {
         remoteOnly: Boolean(row.remoteOnly),
         minSalary: row.minSalary,
         enabled: Boolean(row.enabled),
-        interval: (row.interval as ScheduleInterval) ?? '6h',
+        interval,
         lastRunAt: row.lastRunAt,
-        nextRunAt: computeNextRun(row.lastRunAt, (row.interval as ScheduleInterval) ?? '6h'),
+        nextRunAt: computeNextRun(row.lastRunAt, interval),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     };
@@ -210,8 +259,20 @@ function toSerializedSearch(row: any): SerializedJobSearch {
 export function listSearches(): SerializedJobSearch[] {
     const rows = getDb()
         .prepare('SELECT * FROM job_searches ORDER BY createdAt DESC')
-        .all() as any[];
+        .all() as JobSearchRow[];
     return rows.map(toSerializedSearch);
+}
+
+function getSearchRow(id: string): JobSearchRow | null {
+    const row = getDb()
+        .prepare('SELECT * FROM job_searches WHERE id = ?')
+        .get(id) as JobSearchRow | undefined;
+    return row ?? null;
+}
+
+export function getSearch(id: string): SerializedJobSearch | null {
+    const row = getSearchRow(id);
+    return row ? toSerializedSearch(row) : null;
 }
 
 export function createSearch(input: JobSearchInput): SerializedJobSearch {
@@ -237,11 +298,11 @@ export function createSearch(input: JobSearchInput): SerializedJobSearch {
             createdAt: now,
             updatedAt: now,
         });
-    return listSearches().find((s) => s.id === id)!;
+    return getSearch(id)!;
 }
 
 export function updateSearch(id: string, input: JobSearchInput): SerializedJobSearch {
-    const existing = listSearches().find((s) => s.id === id);
+    const existing = getSearch(id);
     if (!existing) throw new Error(`Search ${id} not found`);
     const sources =
         input.sources !== undefined && input.sources.length > 0
@@ -269,7 +330,7 @@ export function updateSearch(id: string, input: JobSearchInput): SerializedJobSe
             WHERE id = @id`,
         )
         .run(merged);
-    return listSearches().find((s) => s.id === id)!;
+    return getSearch(id)!;
 }
 
 export function deleteSearch(id: string): void {
@@ -277,16 +338,20 @@ export function deleteSearch(id: string): void {
     getDb().prepare('DELETE FROM job_candidates WHERE searchId = ?').run(id);
 }
 
+function toSerializedCandidate(row: JobCandidateRow): SerializedJobCandidate {
+    return {
+        ...row,
+        favorite: Boolean(row.favorite),
+    } as SerializedJobCandidate;
+}
+
 export function listCandidates(minScore: number = 0): SerializedJobCandidate[] {
     const rows = getDb()
         .prepare(
-            "SELECT * FROM job_candidates WHERE score >= ? AND status != 'ignored' ORDER BY favorite DESC, score DESC, discoveredAt DESC LIMIT 500",
+            "SELECT * FROM job_candidates WHERE score >= ? AND status != 'ignored' ORDER BY favorite DESC, score DESC, discoveredAt DESC LIMIT ?",
         )
-        .all(minScore) as any[];
-    return rows.map((r) => ({
-        ...r,
-        favorite: Boolean(r.favorite),
-    }));
+        .all(minScore, CANDIDATE_SEARCH_LIMIT) as JobCandidateRow[];
+    return rows.map(toSerializedCandidate);
 }
 
 export function updateCandidate(id: string, input: JobCandidateInput): SerializedJobCandidate {
@@ -309,8 +374,10 @@ export function updateCandidate(id: string, input: JobCandidateInput): Serialize
             .prepare(`UPDATE job_candidates SET ${sets.join(', ')} WHERE id = @id`)
             .run(updates);
     }
-    const row = getDb().prepare('SELECT * FROM job_candidates WHERE id = ?').get(id) as any;
-    return { ...row, favorite: Boolean(row.favorite) };
+    const row = getDb()
+        .prepare('SELECT * FROM job_candidates WHERE id = ?')
+        .get(id) as JobCandidateRow;
+    return toSerializedCandidate(row);
 }
 
 export function bulkUpdateCandidates(ids: string[], input: JobCandidateInput): number {
@@ -337,7 +404,7 @@ export function bulkUpdateCandidates(ids: string[], input: JobCandidateInput): n
 export function listAgentRuns(limit: number = 30): AgentRunRecord[] {
     const rows = getDb()
         .prepare('SELECT * FROM agent_runs ORDER BY startedAt DESC LIMIT ?')
-        .all(limit) as any[];
+        .all(limit) as AgentRunRow[];
     return rows.map((r) => ({
         id: r.id,
         searchId: r.searchId,
@@ -381,7 +448,7 @@ export async function runSearchNow(
         return { added: 0, scanned: 0, errors: ['Already running'], canceled: false };
     }
 
-    const search = listSearches().find((s) => s.id === searchId);
+    const search = getSearch(searchId);
     if (!search) throw new Error(`Search ${searchId} not found`);
 
     const controller = new AbortController();

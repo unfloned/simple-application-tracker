@@ -17,21 +17,21 @@ export interface UserProfile {
 
 interface StoredProfile extends Omit<UserProfile, 'smtpPassword'> {
     smtpPasswordEnc: string;
+    /** Legacy plaintext field from pre-0.4.0. Only present when migration runs. */
+    smtpPassword?: string;
 }
 
 const ENC_PREFIX = 'enc:v1:';
 
 function encryptPassword(plain: string): string {
     if (!plain) return '';
-    try {
-        if (safeStorage.isEncryptionAvailable()) {
-            const buf = safeStorage.encryptString(plain);
-            return ENC_PREFIX + buf.toString('base64');
-        }
-    } catch (err) {
-        console.warn('[profile] encryptString failed:', (err as Error).message);
+    if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error(
+            'OS keychain encryption is not available. Refusing to store the SMTP password as plain text.',
+        );
     }
-    return plain;
+    const buf = safeStorage.encryptString(plain);
+    return ENC_PREFIX + buf.toString('base64');
 }
 
 function decryptPassword(stored: string): string {
@@ -66,14 +66,17 @@ const store = new Store<StoredProfile>({
 migrateLegacyPassword();
 
 function migrateLegacyPassword(): void {
-    const legacy = (store as unknown as { get(k: string): unknown }).get('smtpPassword') as
-        | string
-        | undefined;
+    const legacy = store.get('smtpPassword');
     if (legacy && typeof legacy === 'string') {
         if (!store.get('smtpPasswordEnc')) {
-            store.set('smtpPasswordEnc', encryptPassword(legacy));
+            try {
+                store.set('smtpPasswordEnc', encryptPassword(legacy));
+            } catch (err) {
+                console.warn('[profile] legacy password migration failed:', (err as Error).message);
+                return;
+            }
         }
-        (store as unknown as { delete(k: string): void }).delete('smtpPassword');
+        store.delete('smtpPassword' as keyof StoredProfile);
     }
 }
 
@@ -88,19 +91,19 @@ export function getUserProfile(): UserProfile {
         smtpPort: store.get('smtpPort'),
         smtpSecure: store.get('smtpSecure'),
         smtpUser: store.get('smtpUser'),
-        smtpPassword: decryptPassword(store.get('smtpPasswordEnc') as string),
+        smtpPassword: decryptPassword(store.get('smtpPasswordEnc')),
         smtpFromName: store.get('smtpFromName'),
     };
 }
 
 export function setUserProfile(profile: Partial<UserProfile>): UserProfile {
-    for (const key of Object.keys(profile) as (keyof UserProfile)[]) {
-        const value = profile[key];
+    for (const [key, value] of Object.entries(profile)) {
         if (value === undefined) continue;
         if (key === 'smtpPassword') {
             store.set('smtpPasswordEnc', encryptPassword(String(value)));
         } else {
-            store.set(key as keyof StoredProfile, value as never);
+            const storedKey = key as keyof StoredProfile;
+            store.set(storedKey, value as StoredProfile[typeof storedKey]);
         }
     }
     return getUserProfile();

@@ -1,4 +1,5 @@
 import type { JobSource } from '@shared/job-search';
+import { PER_SOURCE_LIMIT } from '../constants';
 
 export interface RawJobListing {
     sourceUrl: string;
@@ -18,7 +19,6 @@ export interface ScrapeContext {
 const USER_AGENT =
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
-const PER_SOURCE_LIMIT = 500;
 const ARBEITNOW_MAX_PAGES = 10;
 const HACKERNEWS_MAX_COMMENTS = 400;
 
