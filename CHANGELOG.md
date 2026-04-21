@@ -2,6 +2,12 @@
 
 All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.1
+
+### Fixed
+- Infinite re-render loop in the status footer that pinned the renderer process at 100% CPU even when idle. `searchLabels` was stored in React state with itself as a `useEffect` dependency, causing the effect to refire and refetch on every run. Moved to a `useRef` and cleared the dependency array.
+- `updater:currentVersion` and `updater:checkNow` IPC handlers were only registered when the app was packaged, so clicking "Check for update" in dev mode threw "No handler registered". Handlers are now always registered and return a dev sentinel when `app.isPackaged` is false.
+
 ## 0.2.0
 
 ### Added

@@ -1,6 +1,6 @@
 {
     "name": "simple-application-tracker",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Offline desktop app for tracking job applications with local LLM auto-fill, fit scoring, Excel export, and search agents across job portals",
     "author": {
         "name": "Florian Chiorean",

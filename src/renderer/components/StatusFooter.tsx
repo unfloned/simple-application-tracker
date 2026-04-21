@@ -1,5 +1,5 @@
 import { Badge, Box, Group, Progress, Text, Tooltip } from '@mantine/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface RunProgress {
@@ -20,19 +20,23 @@ export function StatusFooter({ totalApplications, visibleApplications }: Props) 
     const { t } = useTranslation();
     const [progress, setProgress] = useState<RunProgress | null>(null);
     const [ollamaRunning, setOllamaRunning] = useState<boolean | null>(null);
-    const [searchLabels, setSearchLabels] = useState<Record<string, string>>({});
+    const labelsRef = useRef<Record<string, string>>({});
 
     useEffect(() => {
-        window.api.agents.listSearches().then((searches) => {
-            const map: Record<string, string> = {};
-            for (const s of searches) map[s.id] = s.label;
-            setSearchLabels(map);
-        });
+        const loadLabels = () => {
+            window.api.agents.listSearches().then((searches) => {
+                const map: Record<string, string> = {};
+                for (const s of searches) map[s.id] = s.label;
+                labelsRef.current = map;
+            });
+        };
+        loadLabels();
 
         const offStart = window.api.on('agents:runStarted', (payload: { searchId: string }) => {
+            loadLabels();
             setProgress({
                 searchId: payload.searchId,
-                searchLabel: searchLabels[payload.searchId] ?? 'Search',
+                searchLabel: labelsRef.current[payload.searchId] ?? 'Search',
                 source: '',
                 current: 0,
                 total: 0,
@@ -45,7 +49,8 @@ export function StatusFooter({ totalApplications, visibleApplications }: Props) 
             (payload: Omit<RunProgress, 'searchLabel'>) => {
                 setProgress((prev) => ({
                     ...payload,
-                    searchLabel: prev?.searchLabel ?? searchLabels[payload.searchId] ?? 'Search',
+                    searchLabel:
+                        prev?.searchLabel ?? labelsRef.current[payload.searchId] ?? 'Search',
                 }));
             },
         );
@@ -71,7 +76,7 @@ export function StatusFooter({ totalApplications, visibleApplications }: Props) 
             offFinished();
             clearInterval(interval);
         };
-    }, [searchLabels]);
+    }, []);
 
     const visibleText =
         visibleApplications === totalApplications
