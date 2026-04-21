@@ -7,12 +7,13 @@ import {
     Center,
     Checkbox,
     Code,
+    Drawer,
     Group,
     Loader,
     Menu,
-    Modal,
+    MultiSelect,
     NumberInput,
-    Select,
+    ScrollArea,
     SimpleGrid,
     Stack,
     Switch,
@@ -26,7 +27,6 @@ import { notifications } from '@mantine/notifications';
 import {
     IconArrowUpRight,
     IconDotsVertical,
-    IconEye,
     IconEyeOff,
     IconPlayerPlay,
     IconPlus,
@@ -34,16 +34,17 @@ import {
     IconTrash,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type {
-    AgentProfile,
-    ApplicationRecord,
-} from '../../preload/index';
+import type { AgentProfile, ApplicationRecord } from '../../preload/index';
 import type {
     JobSource,
     SerializedJobCandidate,
     SerializedJobSearch,
 } from '@shared/job-search';
-import { JOB_SOURCE_LABEL } from '@shared/job-search';
+import {
+    ALL_JOB_SOURCES,
+    JOB_SOURCE_DESCRIPTION,
+    JOB_SOURCE_LABEL,
+} from '@shared/job-search';
 
 interface Props {
     onCandidateImported: (app: ApplicationRecord) => void;
@@ -86,15 +87,20 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
         setRunningId(id);
         try {
             const result = await window.api.agents.runSearch(id);
+            const msgParts: string[] = [`${result.scored} scanned`, `${result.added} new`];
+            if (result.errors && result.errors.length > 0) {
+                msgParts.push(`errors: ${result.errors.join('; ')}`);
+            }
             notifications.show({
                 color: result.added > 0 ? 'green' : 'gray',
-                message: `${result.scored} Stellen gescannt, ${result.added} neu.`,
+                message: msgParts.join(', '),
+                autoClose: 6000,
             });
             await refresh();
         } catch (err) {
             notifications.show({
                 color: 'red',
-                title: 'Agent-Lauf fehlgeschlagen',
+                title: 'Agent run failed',
                 message: (err as Error).message,
             });
         } finally {
@@ -111,9 +117,9 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
         <Stack gap="lg">
             <Group justify="space-between" align="end">
                 <div>
-                    <Title order={3}>Vorschläge</Title>
+                    <Title order={3}>Candidates</Title>
                     <Text size="sm" c="dimmed">
-                        Agenten durchsuchen definierte Portale und scoren Stellen anhand deines Profils.
+                        Agents scan configured portals and score findings against your profile.
                     </Text>
                 </div>
                 <Group>
@@ -122,7 +128,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                         leftSection={<IconSettings size={16} />}
                         onClick={() => setProfileOpen(true)}
                     >
-                        Profil
+                        Profile
                     </Button>
                     <Button
                         leftSection={<IconPlus size={16} />}
@@ -131,7 +137,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                             setFormOpen(true);
                         }}
                     >
-                        Neue Suche
+                        New search
                     </Button>
                 </Group>
             </Group>
@@ -154,40 +160,44 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                                             setFormOpen(true);
                                         }}
                                     >
-                                        Bearbeiten
+                                        Edit
                                     </Menu.Item>
                                     <Menu.Item
                                         color="red"
                                         leftSection={<IconTrash size={14} />}
                                         onClick={async () => {
-                                            if (confirm(`Suche "${s.label}" löschen?`)) {
+                                            if (confirm(`Delete search "${s.label}"?`)) {
                                                 await window.api.agents.deleteSearch(s.id);
                                                 await refresh();
                                             }
                                         }}
                                     >
-                                        Löschen
+                                        Delete
                                     </Menu.Item>
                                 </Menu.Dropdown>
                             </Menu>
                         </Group>
                         <Stack gap={4} mb="sm">
+                            <Group gap={4}>
+                                {s.sources.map((src) => (
+                                    <Badge key={src} size="xs" variant="light">
+                                        {JOB_SOURCE_LABEL[src].split(' (')[0]}
+                                    </Badge>
+                                ))}
+                            </Group>
                             <Text size="xs" c="dimmed">
-                                Quelle: <b>{JOB_SOURCE_LABEL[s.source as JobSource]}</b>
-                            </Text>
-                            <Text size="xs" c="dimmed">
-                                Keywords: <Code>{s.keywords || '—'}</Code>
+                                Keywords: <Code>{s.keywords || 'all'}</Code>
                             </Text>
                             {s.lastRunAt && (
                                 <Text size="xs" c="dimmed">
-                                    Zuletzt: {new Date(s.lastRunAt).toLocaleString('de-DE')}
+                                    Last run: {new Date(s.lastRunAt).toLocaleString()}
                                 </Text>
                             )}
                         </Stack>
                         <Group>
                             <Switch
                                 size="xs"
-                                label="Aktiv"
+                                label="Active"
                                 checked={s.enabled}
                                 onChange={async (e) => {
                                     await window.api.agents.updateSearch(s.id, {
@@ -204,7 +214,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                                 onClick={() => runSearch(s.id)}
                                 ml="auto"
                             >
-                                Jetzt laufen
+                                Run now
                             </Button>
                         </Group>
                     </Card>
@@ -213,9 +223,9 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                     <Card withBorder padding="lg">
                         <Center py="md">
                             <Stack align="center" gap={4}>
-                                <Text c="dimmed">Keine Suchen angelegt.</Text>
+                                <Text c="dimmed">No searches yet.</Text>
                                 <Text size="xs" c="dimmed">
-                                    "Neue Suche" oben rechts klicken.
+                                    Click "New search" above.
                                 </Text>
                             </Stack>
                         </Center>
@@ -224,9 +234,9 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
             </SimpleGrid>
 
             <Group justify="space-between" align="end">
-                <Title order={4}>Gefundene Stellen</Title>
+                <Title order={4}>Matches</Title>
                 <NumberInput
-                    label="Min. Passungs-Score"
+                    label="Min match score"
                     value={minScore}
                     onChange={(v) => setMinScore(Number(v) || 0)}
                     min={0}
@@ -242,9 +252,9 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
             ) : filteredCandidates.length === 0 ? (
                 <Center py="xl">
                     <Stack align="center" gap={4}>
-                        <Text c="dimmed">Keine Vorschläge.</Text>
+                        <Text c="dimmed">No candidates yet.</Text>
                         <Text size="xs" c="dimmed">
-                            Lass eine Suche laufen oder senke den Min-Score.
+                            Run a search or lower the min score.
                         </Text>
                     </Stack>
                 </Center>
@@ -261,12 +271,12 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                                         <Text fw={600}>{c.title}</Text>
                                         {c.company && (
                                             <Text size="sm" c="dimmed">
-                                                · {c.company}
+                                                . {c.company}
                                             </Text>
                                         )}
                                         {c.location && (
                                             <Text size="sm" c="dimmed">
-                                                · {c.location}
+                                                . {c.location}
                                             </Text>
                                         )}
                                     </Group>
@@ -291,19 +301,19 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                                 </Stack>
                                 <Group gap="xs" wrap="nowrap">
                                     {c.status === 'imported' ? (
-                                        <Badge variant="light">übernommen</Badge>
+                                        <Badge variant="light">imported</Badge>
                                     ) : (
                                         <>
-                                            <Tooltip label="Als Bewerbung anlegen">
+                                            <Tooltip label="Add as application">
                                                 <ActionIcon
                                                     variant="light"
                                                     color="accent"
                                                     onClick={async () => {
-                                                        const app = await window.api.agents.importCandidate(c.id);
-                                                        onCandidateImported(app);
+                                                        const appRec = await window.api.agents.importCandidate(c.id);
+                                                        onCandidateImported(appRec);
                                                         notifications.show({
                                                             color: 'green',
-                                                            message: `${c.company || c.title} als Bewerbung angelegt.`,
+                                                            message: `${c.company || c.title} added.`,
                                                         });
                                                         await refresh();
                                                     }}
@@ -311,7 +321,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                                                     <IconPlus size={16} />
                                                 </ActionIcon>
                                             </Tooltip>
-                                            <Tooltip label="Verwerfen">
+                                            <Tooltip label="Dismiss">
                                                 <ActionIcon
                                                     variant="subtle"
                                                     color="gray"
@@ -334,7 +344,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                 </Stack>
             )}
 
-            <SearchFormModal
+            <SearchFormDrawer
                 opened={formOpen}
                 onClose={() => setFormOpen(false)}
                 initial={editing}
@@ -344,7 +354,7 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
                 }}
             />
 
-            <AgentProfileModal opened={profileOpen} onClose={() => setProfileOpen(false)} />
+            <AgentProfileDrawer opened={profileOpen} onClose={() => setProfileOpen(false)} />
         </Stack>
     );
 }
@@ -352,14 +362,14 @@ export function JobSearchesPage({ onCandidateImported }: Props) {
 interface FormValuesSearch {
     label: string;
     keywords: string;
-    source: JobSource;
+    sources: JobSource[];
     locationFilter: string;
     remoteOnly: boolean;
     minSalary: number;
     enabled: boolean;
 }
 
-function SearchFormModal({
+function SearchFormDrawer({
     opened,
     onClose,
     initial,
@@ -374,7 +384,7 @@ function SearchFormModal({
         initialValues: {
             label: '',
             keywords: '',
-            source: 'germantechjobs',
+            sources: ['germantechjobs', 'arbeitnow'],
             locationFilter: '',
             remoteOnly: true,
             minSalary: 0,
@@ -388,7 +398,7 @@ function SearchFormModal({
             form.setValues({
                 label: initial.label,
                 keywords: initial.keywords,
-                source: initial.source as JobSource,
+                sources: initial.sources,
                 locationFilter: initial.locationFilter,
                 remoteOnly: initial.remoteOnly,
                 minSalary: initial.minSalary,
@@ -398,7 +408,7 @@ function SearchFormModal({
             form.setValues({
                 label: 'TypeScript Remote',
                 keywords: 'TypeScript',
-                source: 'germantechjobs',
+                sources: ['germantechjobs', 'arbeitnow', 'remotive'],
                 locationFilter: '',
                 remoteOnly: true,
                 minSalary: 0,
@@ -409,6 +419,10 @@ function SearchFormModal({
     }, [opened, initial]);
 
     const submit = async (values: FormValuesSearch) => {
+        if (values.sources.length === 0) {
+            notifications.show({ color: 'yellow', message: 'Select at least one source.' });
+            return;
+        }
         if (initial) {
             await window.api.agents.updateSearch(initial.id, values);
         } else {
@@ -418,46 +432,70 @@ function SearchFormModal({
     };
 
     return (
-        <Modal opened={opened} onClose={onClose} title={initial ? 'Suche bearbeiten' : 'Neue Suche'}>
+        <Drawer
+            opened={opened}
+            onClose={onClose}
+            position="right"
+            size="md"
+            title={initial ? 'Edit search' : 'New search'}
+            scrollAreaComponent={ScrollArea.Autosize}
+        >
             <form onSubmit={form.onSubmit(submit)}>
                 <Stack gap="md">
-                    <TextInput label="Bezeichnung" required {...form.getInputProps('label')} />
-                    <Select
-                        label="Quelle"
-                        data={[
-                            { value: 'germantechjobs', label: 'GermanTechJobs' },
-                            { value: 'join', label: 'Join.com' },
-                            { value: 'url', label: 'Einzelne URL' },
-                        ]}
-                        {...form.getInputProps('source')}
+                    <TextInput label="Name" required {...form.getInputProps('label')} />
+                    <MultiSelect
+                        label="Sources"
+                        description="Pick any combination of portals; each runs separately."
+                        data={ALL_JOB_SOURCES.map((s) => ({
+                            value: s,
+                            label: JOB_SOURCE_LABEL[s],
+                        }))}
+                        {...form.getInputProps('sources')}
+                        searchable
+                        clearable
                     />
+                    <Stack gap={4}>
+                        {form.values.sources.map((s) => (
+                            <Text key={s} size="xs" c="dimmed">
+                                <b>{JOB_SOURCE_LABEL[s]}:</b> {JOB_SOURCE_DESCRIPTION[s]}
+                            </Text>
+                        ))}
+                    </Stack>
                     <TextInput
-                        label={form.values.source === 'url' ? 'Job-URL' : 'Keywords'}
-                        placeholder={form.values.source === 'url' ? 'https://...' : 'TypeScript Remote'}
+                        label={form.values.sources.includes('url') ? 'Keywords / URL' : 'Keywords'}
+                        placeholder={
+                            form.values.sources.includes('url')
+                                ? 'TypeScript or https://...'
+                                : 'TypeScript Senior Remote'
+                        }
                         {...form.getInputProps('keywords')}
                     />
                     <Checkbox
-                        label="Nur Remote"
+                        label="Remote only (hint for scoring)"
                         {...form.getInputProps('remoteOnly', { type: 'checkbox' })}
                     />
-                    <NumberInput label="Min. Gehalt (EUR/Jahr, 0 = egal)" min={0} {...form.getInputProps('minSalary')} />
+                    <NumberInput
+                        label="Min salary (EUR/year, 0 = any)"
+                        min={0}
+                        {...form.getInputProps('minSalary')}
+                    />
                     <Checkbox
-                        label="Aktiv (läuft alle 6h automatisch)"
+                        label="Active (runs every 6h in background)"
                         {...form.getInputProps('enabled', { type: 'checkbox' })}
                     />
-                    <Group justify="flex-end">
+                    <Group justify="flex-end" mt="md">
                         <Button variant="subtle" onClick={onClose}>
-                            Abbrechen
+                            Cancel
                         </Button>
-                        <Button type="submit">{initial ? 'Speichern' : 'Anlegen'}</Button>
+                        <Button type="submit">{initial ? 'Save' : 'Create'}</Button>
                     </Group>
                 </Stack>
             </form>
-        </Modal>
+        </Drawer>
     );
 }
 
-function AgentProfileModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
+function AgentProfileDrawer({ opened, onClose }: { opened: boolean; onClose: () => void }) {
     const [profile, setProfile] = useState<AgentProfile | null>(null);
 
     useEffect(() => {
@@ -465,49 +503,61 @@ function AgentProfileModal({ opened, onClose }: { opened: boolean; onClose: () =
         window.api.agents.getProfile().then(setProfile);
     }, [opened]);
 
-    if (!profile) return null;
-
     const save = async () => {
+        if (!profile) return;
         await window.api.agents.setProfile(profile);
-        notifications.show({ color: 'green', message: 'Profil gespeichert.' });
+        notifications.show({ color: 'green', message: 'Profile saved.' });
         onClose();
     };
 
     return (
-        <Modal opened={opened} onClose={onClose} title="Bewerbungs-Profil für Scoring" size="md">
-            <Stack gap="md">
-                <Text size="sm" c="dimmed">
-                    Anhand dieses Profils bewertet die LLM jede gefundene Stelle mit 0–100 Passungs-Score.
-                </Text>
-                <TextInput
-                    label="Gewünschter Stack"
-                    placeholder="TypeScript, Next.js, React Native"
-                    value={profile.stackKeywords}
-                    onChange={(e) => setProfile({ ...profile, stackKeywords: e.currentTarget.value })}
-                />
-                <Checkbox
-                    label="Remote bevorzugt"
-                    checked={profile.remotePreferred}
-                    onChange={(e) =>
-                        setProfile({ ...profile, remotePreferred: e.currentTarget.checked })
-                    }
-                />
-                <NumberInput
-                    label="Minimum-Gehalt (EUR/Jahr)"
-                    min={0}
-                    value={profile.minSalary}
-                    onChange={(v) => setProfile({ ...profile, minSalary: Number(v) || 0 })}
-                />
-                <TextInput
-                    label="No-Gos (nicht interessierend)"
-                    placeholder="Java-only, C#-only, PHP-only"
-                    value={profile.antiStack}
-                    onChange={(e) => setProfile({ ...profile, antiStack: e.currentTarget.value })}
-                />
-                <Group justify="flex-end">
-                    <Button onClick={save}>Speichern</Button>
-                </Group>
-            </Stack>
-        </Modal>
+        <Drawer
+            opened={opened}
+            onClose={onClose}
+            position="right"
+            size="md"
+            title="Scoring profile"
+            scrollAreaComponent={ScrollArea.Autosize}
+        >
+            {profile ? (
+                <Stack gap="md">
+                    <Text size="sm" c="dimmed">
+                        The LLM scores every found job from 0 to 100 using this profile.
+                    </Text>
+                    <TextInput
+                        label="Desired stack"
+                        placeholder="TypeScript, Next.js, React Native"
+                        value={profile.stackKeywords}
+                        onChange={(e) => setProfile({ ...profile, stackKeywords: e.currentTarget.value })}
+                    />
+                    <Checkbox
+                        label="Prefer remote"
+                        checked={profile.remotePreferred}
+                        onChange={(e) =>
+                            setProfile({ ...profile, remotePreferred: e.currentTarget.checked })
+                        }
+                    />
+                    <NumberInput
+                        label="Minimum salary (EUR/year)"
+                        min={0}
+                        value={profile.minSalary}
+                        onChange={(v) => setProfile({ ...profile, minSalary: Number(v) || 0 })}
+                    />
+                    <TextInput
+                        label="Anti-stack (deal-breakers)"
+                        placeholder="Java-only, C#-only, PHP-only"
+                        value={profile.antiStack}
+                        onChange={(e) => setProfile({ ...profile, antiStack: e.currentTarget.value })}
+                    />
+                    <Group justify="flex-end">
+                        <Button onClick={save}>Save</Button>
+                    </Group>
+                </Stack>
+            ) : (
+                <Center py="xl">
+                    <Loader />
+                </Center>
+            )}
+        </Drawer>
     );
 }

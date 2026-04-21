@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import type { ApplicationInput, ApplicationStatus, Priority, RemoteType } from '@shared/application';
@@ -71,7 +71,6 @@ function parseList(raw: string | null | undefined): string[] {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed.filter((v) => typeof v === 'string');
     } catch {
-        // Legacy format (newline-separated with possible "- " prefixes) → migrate on read
         return raw
             .split(/\n/)
             .map((line) => line.replace(/^[\s\-•]+/, '').trim())
@@ -86,10 +85,44 @@ function stringifyList(list: string[] | undefined): string {
 
 let db: Database.Database | null = null;
 
+function migrateFromLegacyAppFolder(userDataPath: string): void {
+    const legacyCandidates = [
+        join(userDataPath, '..', 'bewerbungen-tracker'),
+        join(userDataPath, '..', 'Bewerbungen-Tracker'),
+    ];
+
+    const targetDb = join(userDataPath, 'tracker.sqlite');
+    if (existsSync(targetDb)) return;
+
+    for (const legacyDir of legacyCandidates) {
+        if (!existsSync(legacyDir)) continue;
+        const legacyFiles = ['tracker.sqlite', 'tracker.sqlite-wal', 'tracker.sqlite-shm', 'agents.sqlite', 'config.json', 'agent-profile.json'];
+        let copied = 0;
+        for (const file of legacyFiles) {
+            const src = join(legacyDir, file);
+            if (existsSync(src)) {
+                try {
+                    copyFileSync(src, join(userDataPath, file));
+                    copied += 1;
+                } catch (err) {
+                    console.warn(`[migration] Copy ${file} failed:`, (err as Error).message);
+                }
+            }
+        }
+        if (copied > 0) {
+            console.log(`[migration] Restored ${copied} files from ${legacyDir}`);
+            return;
+        }
+    }
+}
+
 export function initDatabase(): void {
     if (db) return;
     const userDataPath = app.getPath('userData');
     mkdirSync(userDataPath, { recursive: true });
+
+    migrateFromLegacyAppFolder(userDataPath);
+
     const dbPath = join(userDataPath, 'tracker.sqlite');
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
@@ -125,7 +158,7 @@ export function initDatabase(): void {
         );
     `);
 
-    const columns = db.prepare("PRAGMA table_info(applications)").all() as { name: string }[];
+    const columns = db.prepare('PRAGMA table_info(applications)').all() as { name: string }[];
     const existing = new Set(columns.map((c) => c.name));
     const migrations: Array<[string, string]> = [
         ['requiredProfile', "ALTER TABLE applications ADD COLUMN requiredProfile TEXT NOT NULL DEFAULT ''"],

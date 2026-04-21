@@ -1,6 +1,6 @@
 # Simple Application Tracker
 
-Offline-Desktop-App zum Tracken von Jobbewerbungen. Keine Cloud, keine Login, alle Daten lokal. Mit lokaler LLM-Integration für Auto-Fill aus URLs, Passungs-Scoring und automatischen Such-Agenten über Job-Portale.
+Offline desktop app for tracking job applications. No cloud, no login, all data stays local. Includes local LLM integration for auto-fill from URLs, fit scoring against your profile, and background search agents across job portals.
 
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
 ![electron](https://img.shields.io/badge/electron-33-47848f)
@@ -8,27 +8,28 @@ Offline-Desktop-App zum Tracken von Jobbewerbungen. Keine Cloud, keine Login, al
 
 ## Features
 
-- **Bewerbungen tracken** — Status-Flow (Entwurf → Beworben → In Prüfung → Gespräch → Angebot), Gehalt, Stack, Kontakte, Notizen, Tags
-- **Anforderungen & Benefits** als getaggte Listen pro Bewerbung
-- **Auto-Fill aus URL** — Lokale Ollama holt die Seite, extrahiert Firma/Titel/Stack/Profil/Benefits als JSON
-- **Passungs-Check** — LLM bewertet die Stelle gegen dein Profil (0–100 Score + Begründung)
-- **Agent-System** — Definierbare Job-Suchen (GermanTechJobs, Join.com, einzelne URLs), laufen alle 6h im Hintergrund, neue Funde werden LLM-gescored und im Vorschläge-Tab angezeigt
-- **Excel-Export** — Vollständiger .xlsx-Export aller Bewerbungen
-- **Tray-Icon** in der Menüleiste mit Quick-Add
-- **Drawer-UI** (Bearbeitungsfenster von rechts, nicht Modal)
-- **Auto-Updates** via GitHub Releases (electron-updater)
-- **100% offline** — SQLite lokal in `~/Library/Application Support/simple-application-tracker/`
+- Track applications with status flow (draft, applied, in review, interview, offer, accepted, rejected)
+- Store company, title, salary range, stack, contacts, notes, tags, priority
+- Required profile and benefits as multi-tag lists per application
+- Auto-fill from a job URL using local Ollama (extracts company, title, stack, profile, benefits as JSON)
+- Fit check button that scores the role against your profile (0 to 100 plus reason)
+- Agent system with configurable searches across multiple portals (GermanTechJobs RSS, Remotive API, Arbeitnow API, RemoteOK API, and single URL), runs every 6 hours in the background, scores new finds via LLM
+- Excel export of all applications
+- Tray icon with quick-add
+- Right-side drawer UI instead of modals
+- Auto-updates via GitHub Releases (electron-updater)
+- 100% offline storage: SQLite in platform user-data folder
 
-## Installation
+## Install
 
-### Download (empfohlen)
+### Download prebuilt binaries
 
 Releases: https://github.com/unfloned/simple-application-tracker/releases
 
-- **macOS:** `.dmg` — DMG öffnen, App in Applications ziehen
-- **Windows:** `.exe` — Installer ausführen
+- macOS: download the `.dmg`, open, drag the app into Applications
+- Windows: download the `.exe` installer and run it
 
-### Aus Quellcode
+### Build from source
 
 ```bash
 git clone https://github.com/unfloned/simple-application-tracker.git
@@ -37,80 +38,79 @@ npm install
 npm run dev
 ```
 
-## LLM-Setup (für Auto-Fill und Scoring)
+## LLM setup (for auto-fill and scoring)
 
-Die App ist ohne LLM voll nutzbar — Auto-Fill, Passungs-Check und Agent-Scoring brauchen Ollama.
+The app is fully usable without an LLM. Auto-fill, fit check and agent scoring need Ollama.
 
 ```bash
 brew install ollama           # macOS
-# oder Desktop-App von https://ollama.com/download
-ollama pull llama3.2:3b       # empfohlen für Geschwindigkeit
+# or download the desktop app from https://ollama.com/download
+ollama pull llama3.2:3b       # recommended for speed
 ```
 
-In den App-Einstellungen: Status prüfen, ggf. "Ollama starten" + "Modell herunterladen".
+In the app settings: check status, optionally click "Start Ollama" and "Download model".
 
 ## Stack
 
-- Electron 33 + electron-vite
-- React 18 + Mantine 7 (UI)
-- better-sqlite3 (lokale Datenbank)
-- @deepkit/type (Typdefinitionen)
-- exceljs (Excel-Export)
-- electron-updater (Auto-Updates via GitHub)
-- Ollama-API (lokale LLM)
+- Electron 33 with electron-vite
+- React 18 with Mantine 7 for UI
+- better-sqlite3 for local storage
+- @deepkit/type for type definitions
+- exceljs for Excel export
+- electron-updater against GitHub Releases
+- Ollama HTTP API for local LLM
 
-## Architektur
+## Architecture
 
 ```
 src/
-├── shared/              Type-Definitionen (Application, JobSearch, JobCandidate)
-├── main/                Electron Main Process
-│   ├── index.ts         Window + Tray
-│   ├── db.ts            SQLite CRUD
-│   ├── llm.ts           Ollama-Client (extract, assessFit, status, start)
-│   ├── agents/          Scraper, Scorer, Scheduler
-│   ├── updater.ts       electron-updater gegen GitHub
-│   ├── ipc.ts           IPC-Handler
-│   └── export.ts        Excel-Export
-├── preload/             contextBridge API
-└── renderer/            React-UI (Mantine)
-    ├── App.tsx          AppShell + Tabs
-    ├── pages/           Vorschläge-Seite (Agenten)
-    └── components/      Drawer, List, Settings, UpdateBanner
+  shared/               Type definitions (Application, JobSearch, JobCandidate)
+  main/                 Electron main process
+    index.ts            Window and tray
+    db.ts               SQLite CRUD
+    llm.ts              Ollama client (extract, assessFit, status, start)
+    agents/             Scrapers, scorer, scheduler
+    updater.ts          electron-updater wiring against GitHub
+    ipc.ts              IPC handlers
+    export.ts           Excel export
+  preload/              contextBridge API
+  renderer/             React UI with Mantine
+    App.tsx             AppShell with tabs
+    pages/              Candidates page
+    components/         Drawer, List, Settings, UpdateBanner
 ```
 
 ## Build
 
 ```bash
-npm run build             # Code-Build
-npm run package:mac       # .dmg (unsigniert)
-npm run package:win       # .exe (unsigniert)
-npm run package:linux     # .AppImage
+npm run build               # code build
+npm run package:mac         # .dmg (unsigned)
+npm run package:win         # .exe (unsigned)
+npm run package:linux       # .AppImage
 ```
 
-Release über Git Tag:
+Release via git tag:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-GitHub Actions baut dann automatisch macOS + Windows Artefakte und veröffentlicht als Draft-Release.
+GitHub Actions builds the macOS and Windows artifacts in parallel and publishes them as a release.
 
-## Daten-Ort
+## Data location
 
-- SQLite-Datenbanken (Bewerbungen + Agent-Daten): `~/Library/Application Support/simple-application-tracker/`
-- Config (Ollama URL/Modell, Agent-Profil): gleicher Ordner
+SQLite databases and config live in the platform user-data folder. On macOS this is `~/Library/Application Support/simple-application-tracker/`.
 
 ## Roadmap
 
-- [ ] Multi-Language (DE/EN) via i18next
-- [ ] Mail-Agent via SMTP — automatische Versendung wenn Passung stimmt
-- [ ] Formular-Auto-Fill via Browser-Extension
-- [ ] Kanban-View zusätzlich zur Tabelle
-- [ ] Kalender-Integration (Interviews)
-- [ ] Import/Export als JSON für Backup
+- Multi-language UI (DE and EN) via i18next
+- Mail agent over SMTP that sends applications when a job matches the profile
+- Form auto-fill on job portals via a browser extension
+- Kanban view in addition to the table
+- Calendar integration for interviews
+- JSON import/export for backup
 
-## Lizenz
+## License
 
-MIT — siehe [LICENSE](LICENSE).
+MIT, see `LICENSE`.
