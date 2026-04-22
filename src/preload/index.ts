@@ -54,6 +54,17 @@ export interface ApplicationEvent {
     changedAt: string;
 }
 
+export interface SentEmailRecord {
+    id: string;
+    applicationId: string;
+    toAddress: string;
+    subject: string;
+    body: string;
+    sentAt: string;
+    messageId: string | null;
+    status: string;
+}
+
 export interface AgentProfile {
     stackKeywords: string;
     remotePreferred: boolean;
@@ -74,6 +85,7 @@ export interface UserProfileDto {
     smtpUser: string;
     smtpPassword: string;
     smtpFromName: string;
+    emailInstruction: string;
 }
 
 const api = {
@@ -105,6 +117,8 @@ const api = {
             ipcRenderer.invoke('llm:start'),
         pullModel: (modelName: string): Promise<{ ok: boolean; message?: string }> =>
             ipcRenderer.invoke('llm:pullModel', modelName),
+        draftEmail: (applicationId: string): Promise<{ subject: string; body: string }> =>
+            ipcRenderer.invoke('llm:draftEmail', applicationId),
     },
     agents: {
         listSearches: (): Promise<SerializedJobSearch[]> => ipcRenderer.invoke('agents:listSearches'),
@@ -171,8 +185,11 @@ const api = {
             subject: string;
             body: string;
             attachCv?: boolean;
+            applicationId?: string;
         }): Promise<{ ok: boolean; messageId?: string; error?: string }> =>
             ipcRenderer.invoke('email:send', req),
+        listForApp: (applicationId: string): Promise<SentEmailRecord[]> =>
+            ipcRenderer.invoke('email:listForApp', applicationId),
     },
     backup: {
         create: (): Promise<{ ok: boolean; canceled?: boolean; filePath?: string; size?: number; error?: string }> =>

@@ -7,6 +7,7 @@ import {
     getApplication,
     listApplications,
     listApplicationEvents,
+    listEmailsForApplication,
     listEventsForApplication,
     updateApplication,
     type ApplicationEventRow,
@@ -24,6 +25,7 @@ import { runChat, type ChatRequest } from './chat';
 import {
     assessFit,
     checkLlmStatus,
+    draftEmail,
     extractJobData,
     getLlmConfig,
     pullModel,
@@ -90,6 +92,19 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     ipcMain.handle('llm:status', async () => checkLlmStatus());
     ipcMain.handle('llm:start', async () => startOllama());
     ipcMain.handle('llm:pullModel', async (_evt, modelName: string) => pullModel(modelName));
+    ipcMain.handle('llm:draftEmail', async (_evt, applicationId: string) => {
+        const app = getApplication(applicationId);
+        if (!app) throw new Error(`Application ${applicationId} not found`);
+        return draftEmail({
+            companyName: app.companyName,
+            jobTitle: app.jobTitle,
+            jobDescription: app.jobDescription,
+            location: app.location,
+            remote: app.remote,
+            stack: app.stack,
+            contactName: app.contactName,
+        });
+    });
 
     ipcMain.handle('agents:listSearches', () => listSearches());
     ipcMain.handle('agents:createSearch', (_evt, input) => createSearch(input));
@@ -184,6 +199,12 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
 
     ipcMain.handle('email:verify', async () => verifySmtp());
     ipcMain.handle('email:send', async (_evt, req: EmailSendRequest) => sendEmail(req));
+    ipcMain.handle('email:listForApp', async (_evt, applicationId: string) =>
+        listEmailsForApplication(applicationId).map((r) => ({
+            ...r,
+            sentAt: r.sentAt.toISOString(),
+        })),
+    );
 
     ipcMain.handle('backup:create', async () => {
         const defaultName =

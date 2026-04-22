@@ -13,6 +13,8 @@ export interface UserProfile {
     smtpUser: string;
     smtpPassword: string;
     smtpFromName: string;
+    /** Free-form instruction that tunes how the LLM drafts cover emails. */
+    emailInstruction: string;
 }
 
 interface StoredProfile extends Omit<UserProfile, 'smtpPassword'> {
@@ -60,6 +62,7 @@ const store = new Store<StoredProfile>({
         smtpUser: '',
         smtpPasswordEnc: '',
         smtpFromName: '',
+        emailInstruction: '',
     },
 });
 
@@ -93,6 +96,7 @@ export function getUserProfile(): UserProfile {
         smtpUser: store.get('smtpUser'),
         smtpPassword: decryptPassword(store.get('smtpPasswordEnc')),
         smtpFromName: store.get('smtpFromName'),
+        emailInstruction: store.get('emailInstruction') ?? '',
     };
 }
 

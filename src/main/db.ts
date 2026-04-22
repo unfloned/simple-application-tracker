@@ -229,6 +229,22 @@ export function initDatabase(): void {
             ON application_events(changedAt);
     `);
 
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS email_log (
+            id TEXT PRIMARY KEY,
+            applicationId TEXT NOT NULL,
+            toAddress TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL,
+            sentAt TEXT NOT NULL,
+            messageId TEXT,
+            status TEXT NOT NULL DEFAULT 'ok',
+            FOREIGN KEY (applicationId) REFERENCES applications(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS email_log_app_idx
+            ON email_log(applicationId, sentAt);
+    `);
+
     // Backfill: every existing application gets one seed event at createdAt
     // so the analytics history has a starting point. Only runs once — if any
     // event row already exists for the row, we skip it.
@@ -429,6 +445,81 @@ export function listApplicationEvents(): ApplicationEventRow[] {
         fromStatus: r.fromStatus,
         toStatus: r.toStatus,
         changedAt: new Date(r.changedAt),
+    }));
+}
+
+export interface EmailLogRow {
+    id: string;
+    applicationId: string;
+    toAddress: string;
+    subject: string;
+    body: string;
+    sentAt: Date;
+    messageId: string | null;
+    status: string;
+}
+
+export function logSentEmail(entry: {
+    applicationId: string;
+    toAddress: string;
+    subject: string;
+    body: string;
+    messageId?: string;
+    status?: 'ok' | 'failed';
+}): EmailLogRow {
+    const id = randomUUID();
+    const sentAt = now();
+    getDb()
+        .prepare(
+            `INSERT INTO email_log (id, applicationId, toAddress, subject, body, sentAt, messageId, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+            id,
+            entry.applicationId,
+            entry.toAddress,
+            entry.subject,
+            entry.body,
+            sentAt,
+            entry.messageId ?? null,
+            entry.status ?? 'ok',
+        );
+    return {
+        id,
+        applicationId: entry.applicationId,
+        toAddress: entry.toAddress,
+        subject: entry.subject,
+        body: entry.body,
+        sentAt: new Date(sentAt),
+        messageId: entry.messageId ?? null,
+        status: entry.status ?? 'ok',
+    };
+}
+
+export function listEmailsForApplication(applicationId: string): EmailLogRow[] {
+    const rows = getDb()
+        .prepare(
+            'SELECT id, applicationId, toAddress, subject, body, sentAt, messageId, status FROM email_log WHERE applicationId = ? ORDER BY sentAt DESC',
+        )
+        .all(applicationId) as {
+            id: string;
+            applicationId: string;
+            toAddress: string;
+            subject: string;
+            body: string;
+            sentAt: string;
+            messageId: string | null;
+            status: string;
+        }[];
+    return rows.map((r) => ({
+        id: r.id,
+        applicationId: r.applicationId,
+        toAddress: r.toAddress,
+        subject: r.subject,
+        body: r.body,
+        sentAt: new Date(r.sentAt),
+        messageId: r.messageId,
+        status: r.status,
     }));
 }
 

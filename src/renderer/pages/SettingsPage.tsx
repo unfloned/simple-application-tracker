@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setLanguage, type Language } from '../i18n';
 import { BackupCard } from '../components/settings/BackupCard';
+import { EmailStyleCard } from '../components/settings/EmailStyleCard';
 import { OllamaCard } from '../components/settings/OllamaCard';
 import { ProfileCard } from '../components/settings/ProfileCard';
 import { SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
@@ -92,6 +93,8 @@ export function SettingsPage() {
                 </SettingsSection>
 
                 <ProfileCard />
+
+                <EmailStyleCard />
 
                 <BackupCard />
 

@@ -2,12 +2,15 @@ import nodemailer from 'nodemailer';
 import { existsSync, statSync } from 'node:fs';
 import { basename } from 'node:path';
 import { getUserProfile } from './profile';
+import { logSentEmail } from './db';
 
 export interface EmailSendRequest {
     to: string;
     subject: string;
     body: string;
     attachCv?: boolean;
+    /** If set, the send is recorded in email_log for the given application. */
+    applicationId?: string;
 }
 
 export interface EmailSendResult {
@@ -82,6 +85,20 @@ export async function sendEmail(req: EmailSendRequest): Promise<EmailSendResult>
             html: req.body,
             attachments,
         });
+        if (req.applicationId) {
+            try {
+                logSentEmail({
+                    applicationId: req.applicationId,
+                    toAddress: req.to,
+                    subject: req.subject,
+                    body: req.body,
+                    messageId: info.messageId,
+                    status: 'ok',
+                });
+            } catch (err) {
+                console.warn('[email] log insert failed:', (err as Error).message);
+            }
+        }
         return { ok: true, messageId: info.messageId };
     } catch (err) {
         return { ok: false, error: (err as Error).message };

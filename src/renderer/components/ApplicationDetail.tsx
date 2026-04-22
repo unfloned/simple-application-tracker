@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ApplicationRecord, ApplicationEvent } from '../../preload/index';
+import type { ApplicationRecord, ApplicationEvent, SentEmailRecord } from '../../preload/index';
 import type { ApplicationStatus } from '@shared/application';
 import { STATUS_LABEL } from '@shared/application';
+import { EmailSendDialog } from './EmailSendDialog';
 import { GhostBtn } from './primitives/GhostBtn';
 import { Kbd } from './primitives/Kbd';
 import { Label } from './primitives/Label';
@@ -72,6 +73,11 @@ function formatEventTime(iso: string): string {
     const hh = String(d.getHours()).padStart(2, '0');
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${days[d.getDay()]} · ${hh}:${mm}`;
+}
+
+function stripHtmlSnippet(html: string, max = 140): string {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > max ? text.slice(0, max).trim() + '…' : text;
 }
 
 function splitStack(stack: string): string[] {
@@ -337,6 +343,131 @@ function Timeline({ events, createdAt }: TimelineProps) {
     );
 }
 
+function EmailHistoryRow({
+    email,
+    isLast,
+    expanded,
+    onToggle,
+}: {
+    email: SentEmailRecord;
+    isLast: boolean;
+    expanded: boolean;
+    onToggle: () => void;
+}) {
+    const date = new Date(email.sentAt);
+    const stamp = `${formatDateShort(email.sentAt)} · ${formatEventTime(email.sentAt)}`;
+    const failed = email.status !== 'ok';
+    return (
+        <div
+            style={{
+                borderBottom: isLast ? 'none' : '1px solid var(--rule)',
+            }}
+        >
+            <button
+                type="button"
+                onClick={onToggle}
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: '10px 130px 1fr 16px',
+                    columnGap: 12,
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    font: 'inherit',
+                }}
+            >
+                <div
+                    style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        background: failed ? 'var(--rust)' : 'var(--moss)',
+                    }}
+                />
+                <span
+                    className="mono"
+                    style={{
+                        fontSize: 10.5,
+                        color: 'var(--ink-3)',
+                        letterSpacing: '0.04em',
+                    }}
+                >
+                    {stamp}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                    <div
+                        style={{
+                            fontSize: 13,
+                            color: 'var(--ink)',
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {email.subject || '—'}
+                    </div>
+                    <div
+                        style={{
+                            fontSize: 11,
+                            color: 'var(--ink-3)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            marginTop: 2,
+                        }}
+                    >
+                        {email.toAddress} · {stripHtmlSnippet(email.body, 80)}
+                    </div>
+                </div>
+                <span
+                    style={{
+                        color: 'var(--ink-4)',
+                        fontSize: 11,
+                        transform: expanded ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 120ms',
+                    }}
+                >
+                    ›
+                </span>
+            </button>
+            {expanded && (
+                <div
+                    style={{
+                        padding: '12px 20px 18px',
+                        borderTop: '1px dashed var(--rule)',
+                        background: 'var(--paper)',
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: 11,
+                            color: 'var(--ink-4)',
+                            marginBottom: 8,
+                            fontFamily: 'var(--f-mono)',
+                            letterSpacing: '0.04em',
+                        }}
+                    >
+                        {date.toLocaleString()}
+                    </div>
+                    <div
+                        style={{
+                            fontSize: 13.5,
+                            color: 'var(--ink)',
+                            lineHeight: 1.55,
+                        }}
+                        dangerouslySetInnerHTML={{ __html: email.body }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
 interface Props {
     app: ApplicationRecord;
     onEdit: (app: ApplicationRecord) => void;
@@ -347,6 +478,17 @@ interface Props {
 export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
     const { t } = useTranslation();
     const [events, setEvents] = useState<ApplicationEvent[]>([]);
+    const [emails, setEmails] = useState<SentEmailRecord[]>([]);
+    const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
+    const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+    const [autoApplyMode, setAutoApplyMode] = useState(false);
+
+    const reloadEmails = () => {
+        window.api.email
+            .listForApp(app.id)
+            .then((list) => setEmails(list))
+            .catch(() => setEmails([]));
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -357,6 +499,14 @@ export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
             })
             .catch(() => {
                 if (!cancelled) setEvents([]);
+            });
+        window.api.email
+            .listForApp(app.id)
+            .then((list) => {
+                if (!cancelled) setEmails(list);
+            })
+            .catch(() => {
+                if (!cancelled) setEmails([]);
             });
         return () => {
             cancelled = true;
@@ -780,6 +930,45 @@ export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
                     <Timeline events={events} createdAt={app.createdAt} />
                 </div>
 
+                {/* sent emails history */}
+                {emails.length > 0 && (
+                    <div style={{ marginTop: 28 }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                marginBottom: 10,
+                            }}
+                        >
+                            <Label>
+                                {t('detail.emails.label', 'Versendet')} · {emails.length}
+                            </Label>
+                            <div style={{ flex: 1, height: 1, background: 'var(--rule)' }} />
+                        </div>
+                        <div
+                            style={{
+                                border: '1px solid var(--rule)',
+                                background: 'var(--card)',
+                            }}
+                        >
+                            {emails.map((e, i) => (
+                                <EmailHistoryRow
+                                    key={e.id}
+                                    email={e}
+                                    isLast={i === emails.length - 1}
+                                    expanded={expandedEmailId === e.id}
+                                    onToggle={() =>
+                                        setExpandedEmailId((prev) =>
+                                            prev === e.id ? null : e.id,
+                                        )
+                                    }
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* notes */}
                 {app.notes && app.notes.trim().length > 0 && (
                     <div style={{ marginTop: 24 }}>
@@ -814,6 +1003,7 @@ export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
                     borderTop: '1px solid var(--rule)',
                     background: 'var(--paper-2)',
                     flexShrink: 0,
+                    flexWrap: 'wrap',
                 }}
             >
                 <GhostBtn onClick={() => onEdit(app)}>
@@ -823,6 +1013,32 @@ export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
                 {app.jobUrl && (
                     <GhostBtn onClick={() => window.api.shell.openExternal(app.jobUrl)}>
                         <span>{t('detail.actions.openPosting', 'Open posting')}</span>
+                    </GhostBtn>
+                )}
+                {app.contactEmail && (
+                    <GhostBtn
+                        active={app.status === 'draft'}
+                        onClick={() => {
+                            setAutoApplyMode(app.status === 'draft');
+                            setEmailDialogOpen(true);
+                        }}
+                        title={app.contactEmail}
+                        style={
+                            app.status === 'draft'
+                                ? {
+                                      background: 'var(--ink)',
+                                      color: 'var(--paper)',
+                                      borderColor: 'var(--ink)',
+                                  }
+                                : undefined
+                        }
+                    >
+                        <span>
+                            {app.status === 'draft'
+                                ? t('detail.actions.apply', 'Bewerben')
+                                : t('detail.actions.email', 'Email')}
+                        </span>
+                        <Kbd tone={app.status === 'draft' ? 'dark' : 'light'}>⌘E</Kbd>
                     </GhostBtn>
                 )}
                 <div style={{ flex: 1 }} />
@@ -842,6 +1058,15 @@ export function ApplicationDetail({ app, onEdit, onDelete, onClose }: Props) {
                     <span>{t('common.delete', 'Delete')}</span>
                 </GhostBtn>
             </div>
+
+            <EmailSendDialog
+                opened={emailDialogOpen}
+                onClose={() => setEmailDialogOpen(false)}
+                application={app}
+                autoMarkApplied={autoApplyMode}
+                autoDraft
+                onSent={reloadEmails}
+            />
         </div>
     );
 }
