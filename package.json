@@ -31,6 +31,7 @@
         "@deepkit/core": "^1.0.19",
         "@deepkit/type": "^1.0.19",
         "@fontsource/fraunces": "^5.2.9",
+        "@fontsource/geist-sans": "^5.2.5",
         "@fontsource/jetbrains-mono": "^5.2.8",
         "@fontsource/space-grotesk": "^5.2.10",
         "@mantine/charts": "^9.1.0",

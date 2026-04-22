@@ -1,61 +1,58 @@
-/* Pitch Tracker — Paper & Ink globals */
+/* Pitch Tracker — Clean Terminal globals */
 
 /* Fonts */
-@import '@fontsource/fraunces/400.css';
-@import '@fontsource/fraunces/500.css';
-@import '@fontsource/fraunces/600.css';
-@import '@fontsource/space-grotesk/400.css';
-@import '@fontsource/space-grotesk/500.css';
-@import '@fontsource/space-grotesk/600.css';
-@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/500.css';
 @import '@fontsource/jetbrains-mono/600.css';
 
 :root {
-    /* Paper palette (light default) */
-    --paper: #f4efe6;
-    --paper-2: #ebe5d9;
-    --paper-3: #e0d9c9;
-    --card: #fbf8f1;
-    --ink: #1c1a16;
-    --ink-2: #37332c;
-    --ink-3: #6c665b;
-    --ink-4: #9a9387;
-    --rule: #d7cfbe;
-    --rule-strong: #b9b0a0;
-    --row-hover: #f3ede0;
-    --window-bg: #2a2723;
+    /* Neutral palette (light default) — high contrast, cool off-white */
+    --paper: #f7f7f8;
+    --paper-2: #efeff1;
+    --paper-3: #e3e3e6;
+    --card: #fcfcfd;
+    --ink: #09090b;
+    --ink-2: #1f1f23;
+    --ink-3: #52525b;
+    --ink-4: #8a8a92;
+    --rule: #d4d4d8;
+    --rule-strong: #a1a1aa;
+    --row-hover: #ebebed;
+    --window-bg: #dcdce0;
 
-    /* Signal palette */
-    --accent: oklch(0.74 0.15 70);
-    --accent-ink: oklch(0.38 0.1 60);
-    --rust: oklch(0.52 0.13 35);
-    --moss: oklch(0.55 0.08 145);
-    --sky: oklch(0.6 0.08 230);
+    /* Signal palette — marigold stays as the one warm signal */
+    --accent: oklch(0.78 0.15 72);
+    --accent-ink: oklch(0.36 0.10 60);
+    --rust: oklch(0.55 0.15 30);
+    --moss: oklch(0.58 0.09 148);
+    --sky: oklch(0.62 0.10 230);
 
     /* Typography */
-    --f-display: 'Fraunces', Georgia, serif;
-    --f-ui: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    --f-display: 'Geist', -apple-system, system-ui, sans-serif;
+    --f-ui: 'Geist', -apple-system, system-ui, sans-serif;
     --f-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-    --f-display-track: -0.022em;
-    --f-display-wgt: 500;
+    --f-display-track: -0.02em;
+    --f-display-wgt: 600;
 }
 
-/* Night theme (dark mode) */
+/* Dark mode — neutral, near-black */
 [data-mantine-color-scheme='dark'] {
-    --paper: #1b1a17;
-    --paper-2: #232119;
-    --paper-3: #2c2920;
-    --card: #24221c;
-    --ink: #ece6d8;
-    --ink-2: #cbc5b6;
-    --ink-3: #8c8777;
-    --ink-4: #635f55;
-    --rule: #393528;
-    --rule-strong: #4e4838;
-    --row-hover: #2c2920;
-    --window-bg: #0f0e0b;
+    --paper: #16161a;
+    --paper-2: #1e1e23;
+    --paper-3: #27272c;
+    --card: #1b1b1f;
+    --ink: #fafafa;
+    --ink-2: #d4d4d8;
+    --ink-3: #a1a1aa;
+    --ink-4: #71717a;
+    --rule: #2a2a2e;
+    --rule-strong: #3a3a40;
+    --row-hover: #24242a;
+    --window-bg: #0a0a0c;
 }
 
 html,
@@ -90,6 +87,24 @@ body {
     font-feature-settings: 'tnum';
 }
 
+/* Settings masonry — auto-balanced 2 columns when there's room, else 1 */
+.settings-masonry {
+    columns: 1;
+    column-gap: 40px;
+}
+
+.settings-masonry > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+@media (min-width: 960px) {
+    .settings-masonry {
+        columns: 2;
+    }
+}
+
 /* Scrollbar — thin, paper-toned */
 ::-webkit-scrollbar {
     width: 10px;
@@ -110,10 +125,10 @@ body {
     background: var(--rule-strong);
 }
 
-/* Selection */
+/* Selection — dark text on marigold, works in both color schemes */
 ::selection {
     background: var(--accent);
-    color: var(--ink);
+    color: #0a0a0c;
 }
 
 /* Blinking cursor for composer */

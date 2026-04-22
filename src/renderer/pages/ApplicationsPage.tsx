@@ -10,6 +10,7 @@ import {
 import { IconBriefcase, IconSearch } from '@tabler/icons-react';
 import { RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import type { ApplicationRecord } from '../../preload/index';
 import type { ApplicationStatus } from '@shared/application';
 import { STATUS_ORDER } from '@shared/application';
@@ -72,16 +73,30 @@ export function ApplicationsPage({
     onSavedDetail,
 }: Props) {
     const { t } = useTranslation();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const urlId = searchParams.get('id');
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | null>(null);
     const [bucket, setBucket] = useState<StageBucket>('active');
     const [view, setView] = useState<ViewMode>('list');
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(urlId);
 
-    const handleSelect = useCallback((row: ApplicationRecord) => {
-        setSelectedId(row.id);
-    }, []);
-    const closeDetail = useCallback(() => setSelectedId(null), []);
+    // Pick up ?id=... on mount or when external navigation updates it.
+    useEffect(() => {
+        if (urlId && urlId !== selectedId) setSelectedId(urlId);
+    }, [urlId, selectedId]);
+
+    const handleSelect = useCallback(
+        (row: ApplicationRecord) => {
+            setSelectedId(row.id);
+            setSearchParams({ id: row.id }, { replace: true });
+        },
+        [setSearchParams],
+    );
+    const closeDetail = useCallback(() => {
+        setSelectedId(null);
+        setSearchParams({}, { replace: true });
+    }, [setSearchParams]);
 
     const bucketCounts = useMemo<Record<StageBucket, number>>(() => {
         const c: Record<StageBucket, number> = { active: 0, pipeline: 0, archive: 0, all: rows.length };

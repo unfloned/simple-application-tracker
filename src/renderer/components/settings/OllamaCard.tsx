@@ -1,30 +1,54 @@
-import {
-    Alert,
-    Badge,
-    Button,
-    Card,
-    Group,
-    Stack,
-    Text,
-    TextInput,
-    Title,
-} from '@mantine/core';
+import { TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import {
-    IconCheck,
-    IconDownload,
-    IconInfoCircle,
-    IconPlayerPlay,
-    IconRefresh,
-    IconX,
-} from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { GhostBtn } from '../primitives/GhostBtn';
+import { SettingsHint, SettingsSection } from './SettingsSection';
 
 interface Status {
     running: boolean;
     models: string[];
     error?: string;
+}
+
+function StatusDot({ status }: { status: Status | null }) {
+    const { t } = useTranslation();
+    let color = 'var(--ink-4)';
+    let labelKey = 'settings.statusChecking';
+    if (status) {
+        color = status.running ? 'var(--moss)' : 'var(--rust)';
+        labelKey = status.running ? 'settings.statusRunning' : 'settings.statusOffline';
+    }
+    return (
+        <div
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+            }}
+        >
+            <div
+                style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: color,
+                }}
+            />
+            <span
+                className="mono"
+                style={{
+                    fontSize: 10.5,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    color: 'var(--ink-2)',
+                }}
+            >
+                {t(labelKey)}
+            </span>
+        </div>
+    );
 }
 
 export function OllamaCard() {
@@ -71,13 +95,11 @@ export function OllamaCard() {
                       : t('settings.ollamaStartedCli');
             notifications.show({
                 color: 'green',
-                icon: <IconCheck size={16} />,
                 message: t('settings.ollamaStartedRunning', { method }),
             });
         } else {
             notifications.show({
                 color: 'red',
-                icon: <IconX size={16} />,
                 title: t('settings.ollamaStartFailed'),
                 message: result.message ?? 'Unknown error',
                 autoClose: 10000,
@@ -116,75 +138,73 @@ export function OllamaCard() {
     const hasModel = status?.models.includes(ollamaModel) ?? false;
 
     return (
-        <Card withBorder padding="lg">
-            <Group justify="space-between" mb="md">
-                <Title order={5}>{t('settings.ollamaSection')}</Title>
-                {status === null ? (
-                    <Badge color="gray">{t('settings.statusChecking')}</Badge>
-                ) : status.running ? (
-                    <Badge color="green" leftSection={<IconCheck size={12} />}>
-                        {t('settings.statusRunning')}
-                    </Badge>
-                ) : (
-                    <Badge color="red" leftSection={<IconX size={12} />}>
-                        {t('settings.statusOffline')}
-                    </Badge>
-                )}
-            </Group>
-
+        <SettingsSection label={t('settings.ollamaSection')} right={<StatusDot status={status} />}>
             {status && !status.running && (
-                <Alert variant="light" color="yellow" icon={<IconInfoCircle size={16} />} mb="md">
-                    {t('settings.ollamaOfflineHint', { url: ollamaUrl })}
-                </Alert>
+                <div style={{ marginBottom: 12 }}>
+                    <SettingsHint tone="warn">
+                        {t('settings.ollamaOfflineHint', { url: ollamaUrl })}
+                    </SettingsHint>
+                </div>
             )}
 
             {status?.running && status.models.length > 0 && (
-                <Text size="xs" c="dimmed" mb="md">
+                <div
+                    className="mono"
+                    style={{
+                        fontSize: 11,
+                        color: 'var(--ink-3)',
+                        marginBottom: 12,
+                        letterSpacing: '0.02em',
+                    }}
+                >
                     {t('settings.installedModels', { models: status.models.join(', ') })}
-                </Text>
+                </div>
             )}
 
-            <Group mb="md">
-                <Button
-                    variant="light"
-                    leftSection={<IconRefresh size={16} />}
-                    onClick={refreshStatus}
-                >
-                    {t('common.refresh')}
-                </Button>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                <GhostBtn onClick={refreshStatus}>
+                    <span>{t('common.refresh')}</span>
+                </GhostBtn>
                 {!status?.running && (
-                    <Button
-                        leftSection={<IconPlayerPlay size={16} />}
+                    <GhostBtn
+                        active
                         onClick={doStart}
-                        loading={starting}
+                        disabled={starting}
+                        style={{
+                            background: 'var(--ink)',
+                            color: 'var(--paper)',
+                            borderColor: 'var(--ink)',
+                        }}
                     >
-                        {t('settings.startOllama')}
-                    </Button>
+                        <span>
+                            {starting
+                                ? t('common.working', 'Working…')
+                                : t('settings.startOllama')}
+                        </span>
+                    </GhostBtn>
                 )}
                 {status?.running && !hasModel && (
-                    <Button
-                        variant="light"
-                        leftSection={<IconDownload size={16} />}
-                        onClick={doPull}
-                        loading={pulling}
-                    >
-                        {t('settings.downloadModel')}
-                    </Button>
+                    <GhostBtn onClick={doPull} disabled={pulling}>
+                        <span>
+                            {pulling
+                                ? t('common.working', 'Working…')
+                                : t('settings.downloadModel')}
+                        </span>
+                    </GhostBtn>
                 )}
-            </Group>
+            </div>
 
-            <Alert variant="light" icon={<IconInfoCircle size={16} />} mb="md">
-                {t('settings.installHint')}
-            </Alert>
+            <div style={{ marginBottom: 12 }}>
+                <SettingsHint>{t('settings.installHint')}</SettingsHint>
+            </div>
 
-            <Stack gap="sm">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <TextInput
                     label={t('settings.ollamaUrl')}
                     placeholder="http://localhost:11434"
                     value={ollamaUrl}
                     onChange={(e) => setOllamaUrl(e.currentTarget.value)}
                 />
-
                 <TextInput
                     label={t('settings.ollamaModel')}
                     placeholder="llama3.2:3b"
@@ -192,13 +212,24 @@ export function OllamaCard() {
                     value={ollamaModel}
                     onChange={(e) => setOllamaModel(e.currentTarget.value)}
                 />
+            </div>
 
-                <Group>
-                    <Button onClick={save} loading={saving}>
-                        {t('settings.save')}
-                    </Button>
-                </Group>
-            </Stack>
-        </Card>
+            <div style={{ marginTop: 14 }}>
+                <GhostBtn
+                    active
+                    onClick={save}
+                    disabled={saving}
+                    style={{
+                        background: 'var(--ink)',
+                        color: 'var(--paper)',
+                        borderColor: 'var(--ink)',
+                    }}
+                >
+                    <span>
+                        {saving ? t('common.saving', 'Saving…') : t('settings.save')}
+                    </span>
+                </GhostBtn>
+            </div>
+        </SettingsSection>
     );
 }

@@ -1,14 +1,8 @@
-import { Button, Card, Group, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import {
-    IconArchive,
-    IconCheck,
-    IconFolderOpen,
-    IconUpload,
-    IconX,
-} from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { GhostBtn } from '../primitives/GhostBtn';
+import { SettingsSection } from './SettingsSection';
 
 export function BackupCard() {
     const { t } = useTranslation();
@@ -23,13 +17,11 @@ export function BackupCard() {
         if (result.ok) {
             notifications.show({
                 color: 'green',
-                icon: <IconCheck size={16} />,
                 message: t('backup.exportOk', { size: Math.round((result.size ?? 0) / 1024) }),
             });
         } else {
             notifications.show({
                 color: 'red',
-                icon: <IconX size={16} />,
                 title: t('backup.exportFailed'),
                 message: result.error ?? 'Unknown error',
             });
@@ -45,14 +37,12 @@ export function BackupCard() {
         if (result.ok) {
             notifications.show({
                 color: 'green',
-                icon: <IconCheck size={16} />,
                 message: t('backup.restoreOk', { count: result.restoredFiles ?? 0 }),
                 autoClose: 10000,
             });
         } else {
             notifications.show({
                 color: 'red',
-                icon: <IconX size={16} />,
                 title: t('backup.restoreFailed'),
                 message: result.error ?? 'Unknown error',
             });
@@ -60,33 +50,37 @@ export function BackupCard() {
     };
 
     return (
-        <Card withBorder padding="lg">
-            <Group gap="xs" mb="md">
-                <IconArchive size={18} />
-                <Title order={5}>{t('backup.section')}</Title>
-            </Group>
-            <Text size="sm" c="dimmed" mb="md">
+        <SettingsSection label={t('backup.section')}>
+            <p
+                style={{
+                    fontSize: 12.5,
+                    color: 'var(--ink-3)',
+                    margin: '0 0 14px',
+                    lineHeight: 1.5,
+                }}
+            >
                 {t('backup.hint')}
-            </Text>
-            <Group>
-                <Button
-                    variant="light"
-                    leftSection={<IconUpload size={16} />}
-                    onClick={doBackup}
-                    loading={backupBusy}
-                >
-                    {t('backup.export')}
-                </Button>
-                <Button
-                    variant="light"
-                    color="red"
-                    leftSection={<IconFolderOpen size={16} />}
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <GhostBtn onClick={doBackup} disabled={backupBusy}>
+                    <span>
+                        {backupBusy
+                            ? t('common.working', 'Working…')
+                            : t('backup.export')}
+                    </span>
+                </GhostBtn>
+                <GhostBtn
                     onClick={doRestore}
-                    loading={restoreBusy}
+                    disabled={restoreBusy}
+                    style={{ color: 'var(--rust)', borderColor: 'var(--rust)' }}
                 >
-                    {t('backup.restore')}
-                </Button>
-            </Group>
-        </Card>
+                    <span>
+                        {restoreBusy
+                            ? t('common.working', 'Working…')
+                            : t('backup.restore')}
+                    </span>
+                </GhostBtn>
+            </div>
+        </SettingsSection>
     );
 }

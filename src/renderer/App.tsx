@@ -85,13 +85,8 @@ export function App() {
         );
         const unsubOpenApplication = window.api.on(
             'navigate:openApplication',
-            async (id: string) => {
-                navigate(ROUTES.applications);
-                const found = await window.api.applications.get(id);
-                if (found) {
-                    setEditing(found);
-                    setFormOpen(true);
-                }
+            (id: string) => {
+                navigate(`${ROUTES.applications}?id=${encodeURIComponent(id)}`);
             },
         );
         const unsubAutoImport = window.api.on(
@@ -175,6 +170,13 @@ export function App() {
         setEditing(row);
         setQuickAddUrl(null);
         setFormOpen(true);
+    };
+
+    // Navigate to the Applications split-view with a preselected row instead of
+    // opening the edit drawer directly. Keeps inbox-clicks visually consistent
+    // with clicking a row on the Applications page.
+    const openDetail = (row: ApplicationRecord) => {
+        navigate(`${ROUTES.applications}?id=${encodeURIComponent(row.id)}`);
     };
 
     const openQuickAdd = () => {
@@ -407,7 +409,7 @@ export function App() {
                                 onNewEntry={openNew}
                                 onQuickAdd={openQuickAdd}
                                 onExport={doExport}
-                                onOpenApplication={openEdit}
+                                onOpenApplication={openDetail}
                             />
                         }
                     />

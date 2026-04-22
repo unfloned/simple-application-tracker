@@ -1,22 +1,13 @@
-import {
-    Button,
-    Card,
-    Code,
-    Group,
-    SegmentedControl,
-    Stack,
-    Text,
-    Title,
-    useMantineColorScheme,
-} from '@mantine/core';
+import { SegmentedControl, useMantineColorScheme } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconMoon, IconRefresh, IconSun } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setLanguage, type Language } from '../i18n';
 import { BackupCard } from '../components/settings/BackupCard';
 import { OllamaCard } from '../components/settings/OllamaCard';
 import { ProfileCard } from '../components/settings/ProfileCard';
+import { SettingsRow, SettingsSection } from '../components/settings/SettingsSection';
+import { GhostBtn } from '../components/primitives/GhostBtn';
 
 export function SettingsPage() {
     const { t, i18n } = useTranslation();
@@ -44,60 +35,50 @@ export function SettingsPage() {
     };
 
     return (
-        <Stack gap="xl">
-            <Stack gap={2}>
-                <Title order={2}>{t('settings.title')}</Title>
-                <Text c="dimmed" size="sm">
-                    {t('settings.version')} {version || '-'}
-                </Text>
-            </Stack>
+        <div style={{ maxWidth: 1200 }}>
+            {/* page header — full width above the grid */}
+            <div style={{ marginBottom: 32 }}>
+                <h1
+                    className="serif"
+                    style={{
+                        fontSize: 32,
+                        margin: 0,
+                        color: 'var(--ink)',
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1.1,
+                    }}
+                >
+                    {t('settings.title')}
+                </h1>
+                <div
+                    className="mono"
+                    style={{
+                        fontSize: 11,
+                        color: 'var(--ink-3)',
+                        marginTop: 6,
+                        letterSpacing: '0.04em',
+                    }}
+                >
+                    v{version || '0.0.0'} · local · {t('settings.subtitle', 'configure once, forget')}
+                </div>
+            </div>
 
-            <Card withBorder padding="lg">
-                <Title order={5} mb="md">
-                    {t('settings.appearance')}
-                </Title>
-                <Stack gap="md">
-                    <Group justify="space-between">
-                        <Text size="sm" fw={500}>
-                            {t('settings.theme')}
-                        </Text>
+            {/* sections masonry — CSS columns balance section heights automatically */}
+            <div className="settings-masonry">
+                <SettingsSection label={t('settings.appearance')}>
+                    <SettingsRow label={t('settings.theme')}>
                         <SegmentedControl
                             value={colorScheme}
                             onChange={(v) => setColorScheme(v as 'light' | 'dark' | 'auto')}
                             data={[
-                                {
-                                    value: 'light',
-                                    label: (
-                                        <span style={INLINE_LABEL}>
-                                            <IconSun size={14} /> {t('settings.themeLight')}
-                                        </span>
-                                    ),
-                                },
-                                {
-                                    value: 'dark',
-                                    label: (
-                                        <span style={INLINE_LABEL}>
-                                            <IconMoon size={14} /> {t('settings.themeDark')}
-                                        </span>
-                                    ),
-                                },
-                                {
-                                    value: 'auto',
-                                    label: (
-                                        <span style={{ whiteSpace: 'nowrap' }}>
-                                            {t('settings.themeSystem')}
-                                        </span>
-                                    ),
-                                },
+                                { value: 'light', label: t('settings.themeLight') },
+                                { value: 'dark', label: t('settings.themeDark') },
+                                { value: 'auto', label: t('settings.themeSystem') },
                             ]}
                             size="xs"
                         />
-                    </Group>
-
-                    <Group justify="space-between">
-                        <Text size="sm" fw={500}>
-                            {t('settings.language')}
-                        </Text>
+                    </SettingsRow>
+                    <SettingsRow label={t('settings.language')}>
                         <SegmentedControl
                             value={i18n.language.startsWith('de') ? 'de' : 'en'}
                             onChange={(v) => setLanguage(v as Language)}
@@ -107,35 +88,34 @@ export function SettingsPage() {
                             ]}
                             size="xs"
                         />
-                    </Group>
-                </Stack>
-            </Card>
+                    </SettingsRow>
+                </SettingsSection>
 
-            <ProfileCard />
+                <ProfileCard />
 
-            <BackupCard />
+                <BackupCard />
 
-            <OllamaCard />
+                <OllamaCard />
 
-            <Card withBorder padding="lg">
-                <Title order={5} mb="md">
-                    {t('settings.app')}
-                </Title>
-                <Group justify="space-between" mb="sm">
-                    <Text size="sm">{t('settings.version')}</Text>
-                    <Code>{version || '...'}</Code>
-                </Group>
-                <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={checkUpdate}>
-                    {t('settings.checkForUpdate')}
-                </Button>
-            </Card>
-        </Stack>
+                <SettingsSection label={t('settings.app')}>
+                    <SettingsRow label={t('settings.version')}>
+                        <span
+                            className="mono tnum"
+                            style={{ fontSize: 12, color: 'var(--ink-2)', fontWeight: 500 }}
+                        >
+                            {version || '...'}
+                        </span>
+                    </SettingsRow>
+                    <SettingsRow
+                        label={t('settings.checkForUpdate')}
+                        description={t('settings.checkForUpdateHint', 'Fetch latest release manifest')}
+                    >
+                        <GhostBtn onClick={checkUpdate}>
+                            <span>{t('settings.checkForUpdate')}</span>
+                        </GhostBtn>
+                    </SettingsRow>
+                </SettingsSection>
+            </div>
+        </div>
     );
 }
-
-const INLINE_LABEL: React.CSSProperties = {
-    whiteSpace: 'nowrap',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-};
