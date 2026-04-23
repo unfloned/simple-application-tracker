@@ -137,11 +137,13 @@ export async function unloadModel(): Promise<{ ok: boolean }> {
 export async function pullModel(modelName: string): Promise<{ ok: boolean; message?: string }> {
     const { ollamaUrl } = getLlmConfig();
     try {
+        // No AbortSignal: 70B-class models are 40+ GB and can take >1h on
+        // slow connections. Ollama blocks the HTTP response until the pull
+        // completes when stream=false, so any timeout here is a hard cap.
         const response = await fetch(`${ollamaUrl}/api/pull`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: modelName, stream: false }),
-            signal: AbortSignal.timeout(600000),
         });
         if (!response.ok) return { ok: false, message: `HTTP ${response.status}` };
         return { ok: true };
@@ -163,22 +165,30 @@ async function fetchJobPage(url: string): Promise<string> {
     return stripHtmlPage(html).slice(0, LLM_PAGE_CHAR_LIMIT);
 }
 
-const EXTRACTION_PROMPT = `Du analysierst eine deutsche Stellenanzeige und lieferst eine JSON-Zusammenfassung.
+const EXTRACTION_PROMPT = `Du analysierst eine deutsche Stellenanzeige und lieferst strukturierte Felder als JSON.
 
-Gib exakt dieses JSON-Schema zurück, ohne Markdown-Codeblöcke und ohne weiteren Text:
+Extrahiere alles was im Text steht. Erfinde nichts. Wenn ein Feld nicht genannt ist: leeren String oder 0.
+
+Gib exakt dieses JSON zurück, ohne Markdown-Codeblöcke, ohne Vorspann, ohne Kommentare:
 {
-  "companyName": "string",
-  "jobTitle": "string",
-  "location": "Stadt oder leer wenn nur remote",
+  "companyName": "Firmenname",
+  "jobTitle": "Stellentitel",
+  "location": "Stadt/Region oder leer bei 100% Remote",
   "remote": "onsite" | "hybrid" | "remote",
-  "salaryMin": number (0 wenn nicht genannt),
-  "salaryMax": number (0 wenn nicht genannt, EUR/Jahr),
-  "stack": "Komma-separierte Tech-Stack-Stichworte",
-  "jobDescription": "kurze 1-2 Satz Beschreibung auf Deutsch",
-  "requiredProfile": ["Anforderung 1 an den Bewerber", "Anforderung 2", "..."],
+  "salaryMin": number,
+  "salaryMax": number,
+  "stack": "Komma-separierte Tech-Stichworte aus dem Anforderungstext (z.B. TypeScript, React, Next.js, Postgres)",
+  "jobDescription": "4-8 Sätze: Was macht das Team/die Firma, was ist die Rolle, welche Verantwortung. Konkret, mit Textbezug. KEINE Anforderungen oder Benefits hier - die gehen in die eigenen Felder unten.",
+  "requiredProfile": ["konkrete Anforderung 1", "konkrete Anforderung 2", "..."],
   "benefits": ["Benefit 1", "Benefit 2", "..."],
-  "source": "Job-Portal-Name wenn erkennbar (stepstone, join, personio, indeed, etc.)"
+  "source": "Job-Portal wenn erkennbar (stepstone, join, personio, germantechjobs, linkedin, indeed, etc.), sonst leer"
 }
+
+Regeln:
+- jobDescription muss substantiell sein (4-8 Sätze), nicht 1-2. Beschreibt Rolle, Team und Kontext.
+- requiredProfile = Liste. Jeder Bullet ist eine einzelne klare Anforderung. Keine Langtext-Absätze.
+- benefits = Liste. Jeder Bullet ist ein einzelner Benefit.
+- Gehalt nur wenn explizit im Text. Umrechnung Monatsgehalt→Jahresgehalt (×12) ist ok.
 
 Stellenanzeigentext:
 `;
@@ -195,7 +205,17 @@ export async function extractJobData(url: string): Promise<ExtractedJobData> {
             prompt: EXTRACTION_PROMPT + pageText,
             stream: false,
             format: 'json',
-            options: { temperature: 0.1 },
+            options: {
+                temperature: 0.1,
+                // Ollama's default caps output at 128 tokens, which truncates
+                // the JSON mid-field. 2048 fits a full extraction with a multi-
+                // sentence jobDescription, requirements list and benefits list.
+                num_predict: 2048,
+                // Page text can be up to LLM_PAGE_CHAR_LIMIT chars (~4-6k
+                // tokens) + prompt. 16k keeps us safely inside most small
+                // models (llama3.2 defaults to 128k, Qwen to 32k, etc.).
+                num_ctx: 16384,
+            },
         }),
     });
 

@@ -1,5 +1,5 @@
 import type { JobSource } from '@shared/job-search';
-import { PER_SOURCE_LIMIT } from '../constants';
+import { PER_SOURCE_LIMIT, SCRAPER_SUMMARY_CHAR_LIMIT } from '../constants';
 
 export interface RawJobListing {
     sourceUrl: string;
@@ -130,7 +130,7 @@ async function scrapeGermanTechJobs(ctx: ScrapeContext): Promise<RawJobListing[]
             title,
             company,
             location: 'Germany',
-            summary: stripTags(item.description).slice(0, 400),
+            summary: stripTags(item.description).slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
         });
 
         if (results.length >= PER_SOURCE_LIMIT) break;
@@ -165,7 +165,7 @@ async function scrapeRemotive(ctx: ScrapeContext): Promise<RawJobListing[]> {
         title: job.title,
         company: job.company_name,
         location: job.candidate_required_location || 'Remote',
-        summary: stripTags(job.description).slice(0, 400),
+        summary: stripTags(job.description).slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
     }));
 }
 
@@ -214,7 +214,7 @@ async function scrapeArbeitnow(ctx: ScrapeContext): Promise<RawJobListing[]> {
                 title: job.title,
                 company: job.company_name,
                 location: job.remote ? 'Remote' : job.location || '',
-                summary: stripTags(job.description).slice(0, 400),
+                summary: stripTags(job.description).slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
             });
             addedThisPage += 1;
             if (results.length >= PER_SOURCE_LIMIT) break;
@@ -256,7 +256,7 @@ async function scrapeRemoteOk(ctx: ScrapeContext): Promise<RawJobListing[]> {
             title: job.position,
             company: job.company,
             location: job.location || 'Remote',
-            summary: stripTags(job.description || '').slice(0, 400),
+            summary: stripTags(job.description || '').slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
         });
 
         if (results.length >= PER_SOURCE_LIMIT) break;
@@ -284,7 +284,7 @@ async function scrapeWeWorkRemotely(ctx: ScrapeContext): Promise<RawJobListing[]
             title,
             company,
             location: 'Remote',
-            summary: stripTags(item.description).slice(0, 400),
+            summary: stripTags(item.description).slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
         });
 
         if (results.length >= PER_SOURCE_LIMIT) break;
@@ -391,7 +391,7 @@ async function scrapeIndeed(ctx: ScrapeContext): Promise<RawJobListing[]> {
             title,
             company,
             location: loc,
-            summary: stripTags(item.description).slice(0, 400),
+            summary: stripTags(item.description).slice(0, SCRAPER_SUMMARY_CHAR_LIMIT),
         });
 
         if (results.length >= PER_SOURCE_LIMIT) break;

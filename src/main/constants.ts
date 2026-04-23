@@ -1,6 +1,7 @@
 export const PER_SOURCE_LIMIT = 500;
 
-export const LLM_PAGE_CHAR_LIMIT = 8000;
+export const LLM_PAGE_CHAR_LIMIT = 16000;
+export const SCRAPER_SUMMARY_CHAR_LIMIT = 3000;
 
 export const OLLAMA_FETCH_TIMEOUT_MS = 60_000;
 export const OLLAMA_START_POLL_MS = 1000;
