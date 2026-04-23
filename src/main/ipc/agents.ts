@@ -2,14 +2,20 @@ import type { BrowserWindow, IpcMain } from 'electron';
 import {
     bulkUpdateCandidates,
     cancelSearchRun,
+    countCandidates,
     createSearch,
+    deleteCandidates,
+    deleteCandidatesBelowScore,
     deleteSearch,
     getAgentProfile,
     isSearchRunning,
     listAgentRuns,
     listCandidates,
+    listIgnoredCandidates,
     listRunningSearches,
     listSearches,
+    rescoreCandidate,
+    rescoreCandidates,
     runSearchNow,
     setAgentProfile,
     updateCandidate,
@@ -50,6 +56,16 @@ export function registerAgentsIpc(
     ipcMain.handle('agents:bulkUpdateCandidates', (_evt, ids: string[], input) =>
         bulkUpdateCandidates(ids, input),
     );
+    ipcMain.handle('agents:deleteCandidates', (_evt, ids: string[]) =>
+        deleteCandidates(ids),
+    );
+    ipcMain.handle('agents:deleteCandidatesBelowScore', (_evt, threshold: number) =>
+        deleteCandidatesBelowScore(threshold),
+    );
+    ipcMain.handle('agents:countCandidates', () => countCandidates());
+    ipcMain.handle('agents:listIgnoredCandidates', () => listIgnoredCandidates());
+    ipcMain.handle('agents:rescoreCandidate', (_evt, id: string) => rescoreCandidate(id));
+    ipcMain.handle('agents:rescoreCandidates', (_evt, ids: string[]) => rescoreCandidates(ids));
     ipcMain.handle('agents:importCandidate', (_evt, candidateId: string) => {
         const candidates = listCandidates();
         const cand = candidates.find((c) => c.id === candidateId);

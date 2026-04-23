@@ -21,12 +21,19 @@ export interface JobCandidateRow {
     searchId: string;
     source: string;
     sourceUrl: string;
+    sourceKey: string;
     title: string;
     company: string;
     location: string;
     summary: string;
     score: number;
     scoreReason: string;
+    /** JSON-encoded string[] of positive signals. */
+    keyFactsJson: string;
+    /** JSON-encoded string[] of concerns. */
+    concernsJson: string;
+    /** JSON-encoded string[] of triggered hard disqualifiers. */
+    redFlagsJson: string;
     status: string;
     favorite: number;
     importedApplicationId: string | null;

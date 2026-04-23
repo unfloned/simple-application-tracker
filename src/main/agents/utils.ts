@@ -63,9 +63,24 @@ export function toSerializedSearch(row: JobSearchRow): SerializedJobSearch {
     };
 }
 
+function parseStringArray(raw: unknown): string[] {
+    if (typeof raw !== 'string' || !raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((v): v is string => typeof v === 'string');
+    } catch {
+        return [];
+    }
+}
+
 export function toSerializedCandidate(row: JobCandidateRow): SerializedJobCandidate {
+    const { keyFactsJson, concernsJson, redFlagsJson, ...rest } = row;
     return {
-        ...row,
+        ...rest,
         favorite: Boolean(row.favorite),
+        keyFacts: parseStringArray(keyFactsJson),
+        concerns: parseStringArray(concernsJson),
+        redFlags: parseStringArray(redFlagsJson),
     } as SerializedJobCandidate;
 }

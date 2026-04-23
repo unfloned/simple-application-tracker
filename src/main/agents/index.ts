@@ -15,9 +15,16 @@ export {
 } from './searches';
 export {
     bulkUpdateCandidates,
+    countCandidates,
+    deleteCandidates,
+    deleteCandidatesBelowScore,
     listCandidates,
+    listIgnoredCandidates,
+    rescoreCandidate,
+    rescoreCandidates,
     updateCandidate,
 } from './candidates';
+export type { CandidateCounts, RescoreResult } from './candidates';
 export {
     cancelSearchRun,
     isSearchRunning,

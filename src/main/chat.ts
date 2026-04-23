@@ -199,7 +199,7 @@ function runTool(name: string, argsRaw: Record<string, unknown> | string): unkno
                 company: c.company,
                 title: c.title,
                 score: c.score,
-                source: c.source,
+                source: c.sourceKey?.split(':')[0] ?? '',
                 status: c.status,
                 location: c.location,
             })),

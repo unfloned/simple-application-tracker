@@ -119,4 +119,13 @@ function runCandidateMigrations(db: Database.Database): void {
     if (!set.has('favorite')) {
         db.exec('ALTER TABLE job_candidates ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
     }
+    if (!set.has('keyFactsJson')) {
+        db.exec("ALTER TABLE job_candidates ADD COLUMN keyFactsJson TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!set.has('concernsJson')) {
+        db.exec("ALTER TABLE job_candidates ADD COLUMN concernsJson TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!set.has('redFlagsJson')) {
+        db.exec("ALTER TABLE job_candidates ADD COLUMN redFlagsJson TEXT NOT NULL DEFAULT '[]'");
+    }
 }

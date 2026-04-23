@@ -84,8 +84,8 @@ export async function runSearchNow(
 
     const insert = getDb().prepare(`
         INSERT OR IGNORE INTO job_candidates
-        (id, searchId, sourceUrl, sourceKey, dedupKey, title, company, location, summary, score, scoreReason, status, discoveredAt)
-        VALUES (@id, @searchId, @sourceUrl, @sourceKey, @dedupKey, @title, @company, @location, @summary, @score, @scoreReason, 'new', @discoveredAt)
+        (id, searchId, sourceUrl, sourceKey, dedupKey, title, company, location, summary, score, scoreReason, keyFactsJson, concernsJson, redFlagsJson, status, discoveredAt)
+        VALUES (@id, @searchId, @sourceUrl, @sourceKey, @dedupKey, @title, @company, @location, @summary, @score, @scoreReason, @keyFactsJson, @concernsJson, @redFlagsJson, 'new', @discoveredAt)
     `);
     const dedupCheck = getDb().prepare(
         'SELECT id FROM job_candidates WHERE dedupKey = ? AND status != \'ignored\' LIMIT 1',
@@ -172,6 +172,9 @@ export async function runSearchNow(
                     summary: listing.summary,
                     score: result.score,
                     scoreReason: result.reason,
+                    keyFactsJson: JSON.stringify(result.keyFacts ?? []),
+                    concernsJson: JSON.stringify(result.concerns ?? []),
+                    redFlagsJson: JSON.stringify(result.redFlags ?? []),
                     discoveredAt: nowIso(),
                 });
                 if (info.changes > 0) {

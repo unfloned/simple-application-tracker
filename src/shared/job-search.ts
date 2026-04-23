@@ -115,6 +115,9 @@ export interface SerializedJobCandidate {
     summary: string;
     score: number;
     scoreReason: string;
+    keyFacts: string[];
+    concerns: string[];
+    redFlags: string[];
     status: CandidateStatus;
     favorite: boolean;
     discoveredAt: string;
