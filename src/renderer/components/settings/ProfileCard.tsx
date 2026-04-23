@@ -13,11 +13,24 @@ import type { UserProfileDto } from '../../../preload/index';
 import { GhostBtn } from '../primitives/GhostBtn';
 import { SettingsHint, SettingsSection } from './SettingsSection';
 
+/**
+ * Guess the matching IMAP host for a given SMTP host. Most providers follow
+ * the smtp.X.tld ↔ imap.X.tld pattern; when it does not match, the user can
+ * still override manually.
+ */
+function guessImapHost(smtpHost: string): string {
+    if (!smtpHost) return '';
+    if (smtpHost.startsWith('smtp.')) return 'imap.' + smtpHost.slice('smtp.'.length);
+    if (smtpHost.startsWith('mail.')) return smtpHost;
+    return '';
+}
+
 export function ProfileCard() {
     const { t } = useTranslation();
     const [profile, setProfile] = useState<UserProfileDto | null>(null);
     const [savingProfile, setSavingProfile] = useState(false);
     const [testingSmtp, setTestingSmtp] = useState(false);
+    const [testingImap, setTestingImap] = useState(false);
     const [encAvailable, setEncAvailable] = useState<boolean | null>(null);
 
     useEffect(() => {
@@ -63,6 +76,41 @@ export function ProfileCard() {
                 autoClose: 10000,
             });
         }
+    };
+
+    const testImap = async () => {
+        if (!profile) return;
+        setSavingProfile(true);
+        await window.api.profile.set(profile);
+        setSavingProfile(false);
+        setTestingImap(true);
+        const result = await window.api.inbox.testImap();
+        setTestingImap(false);
+        if (result.ok) {
+            notifications.show({
+                color: 'green',
+                message: t('profilePage.imapTestOk', {
+                    count: result.inboxMessages ?? 0,
+                }),
+            });
+        } else {
+            notifications.show({
+                color: 'red',
+                title: t('profilePage.imapTestFailed'),
+                message: result.error ?? 'Unknown error',
+                autoClose: 10000,
+            });
+        }
+    };
+
+    const copyFromSmtp = () => {
+        if (!profile) return;
+        setProfile({
+            ...profile,
+            imapUser: profile.imapUser || profile.smtpUser,
+            imapPassword: profile.imapPassword || profile.smtpPassword,
+            imapHost: profile.imapHost || guessImapHost(profile.smtpHost),
+        });
     };
 
     if (!profile) return null;
@@ -131,6 +179,7 @@ export function ProfileCard() {
                 </div>
             </SettingsSection>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <SettingsSection label={t('profilePage.smtpSection')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <SettingsHint>{t('profilePage.smtpHint')}</SettingsHint>
@@ -215,6 +264,85 @@ export function ProfileCard() {
                     </GhostBtn>
                 </div>
             </SettingsSection>
+
+            <SettingsSection label={t('profilePage.imapSection')}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <SettingsHint>{t('profilePage.imapHint')}</SettingsHint>
+                </div>
+
+                <div style={{ marginTop: 14 }}>
+                    <SimpleGrid cols={2} spacing="sm">
+                        <TextInput
+                            label={t('profilePage.imapHost')}
+                            placeholder="imap.gmail.com"
+                            value={profile.imapHost}
+                            onChange={(e) => updateProfile('imapHost', e.currentTarget.value)}
+                        />
+                        <NumberInput
+                            label={t('profilePage.imapPort')}
+                            min={1}
+                            max={65535}
+                            value={profile.imapPort}
+                            onChange={(v) =>
+                                updateProfile('imapPort', typeof v === 'number' ? v : 993)
+                            }
+                        />
+                        <TextInput
+                            label={t('profilePage.imapUser')}
+                            value={profile.imapUser}
+                            onChange={(e) => updateProfile('imapUser', e.currentTarget.value)}
+                        />
+                        <PasswordInput
+                            label={t('profilePage.imapPassword')}
+                            value={profile.imapPassword}
+                            onChange={(e) =>
+                                updateProfile('imapPassword', e.currentTarget.value)
+                            }
+                        />
+                        <Checkbox
+                            label={t('profilePage.imapSecure')}
+                            checked={profile.imapSecure}
+                            onChange={(e) =>
+                                updateProfile('imapSecure', e.currentTarget.checked)
+                            }
+                            mt="xl"
+                        />
+                    </SimpleGrid>
+                </div>
+
+                <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <GhostBtn
+                        active
+                        onClick={saveProfile}
+                        style={{
+                            background: 'var(--ink)',
+                            color: 'var(--paper)',
+                            borderColor: 'var(--ink)',
+                        }}
+                    >
+                        <span>
+                            {savingProfile ? t('common.saving', 'Saving…') : t('profilePage.save')}
+                        </span>
+                    </GhostBtn>
+                    <GhostBtn
+                        onClick={testImap}
+                        disabled={!profile.imapHost || !profile.imapUser}
+                    >
+                        <span>
+                            {testingImap
+                                ? t('common.testing', 'Testing…')
+                                : t('profilePage.testImap')}
+                        </span>
+                    </GhostBtn>
+                    <GhostBtn
+                        onClick={copyFromSmtp}
+                        disabled={!profile.smtpUser}
+                    >
+                        <span>{t('profilePage.copyFromSmtp')}</span>
+                    </GhostBtn>
+                </div>
+            </SettingsSection>
+            </div>
         </>
     );
 }

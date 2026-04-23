@@ -70,7 +70,17 @@ export interface AgentProfile {
     remotePreferred: boolean;
     minSalary: number;
     antiStack: string;
+    excludes: string[];
+    llmInstruction: string;
     autoImportThreshold: number;
+}
+
+export interface CandidateCountsDto {
+    active: number;
+    ignored: number;
+    imported: number;
+    lowScore: number;
+    total: number;
 }
 
 export interface UserProfileDto {
@@ -86,6 +96,37 @@ export interface UserProfileDto {
     smtpPassword: string;
     smtpFromName: string;
     emailInstruction: string;
+    imapHost: string;
+    imapPort: number;
+    imapSecure: boolean;
+    imapUser: string;
+    imapPassword: string;
+}
+
+export type InboundReviewStatus = 'pending' | 'applied' | 'dismissed';
+
+export interface InboundEmailDto {
+    id: string;
+    messageId: string;
+    fromAddress: string;
+    fromName: string;
+    subject: string;
+    bodyText: string;
+    receivedAt: string;
+    fetchedAt: string;
+    suggestedApplicationId: string | null;
+    suggestedStatus: ApplicationStatus | 'other' | null;
+    suggestedNote: string;
+    confidence: number;
+    reviewStatus: InboundReviewStatus;
+}
+
+export interface InboxSyncResult {
+    fetched: number;
+    stored: number;
+    classified: number;
+    skippedDuplicates: number;
+    error?: string;
 }
 
 const api = {
@@ -144,6 +185,18 @@ const api = {
             ids: string[],
             input: { status?: CandidateStatus; favorite?: boolean },
         ): Promise<number> => ipcRenderer.invoke('agents:bulkUpdateCandidates', ids, input),
+        deleteCandidates: (ids: string[]): Promise<number> =>
+            ipcRenderer.invoke('agents:deleteCandidates', ids),
+        deleteCandidatesBelowScore: (threshold: number): Promise<number> =>
+            ipcRenderer.invoke('agents:deleteCandidatesBelowScore', threshold),
+        countCandidates: (): Promise<CandidateCountsDto> =>
+            ipcRenderer.invoke('agents:countCandidates'),
+        listIgnoredCandidates: (): Promise<SerializedJobCandidate[]> =>
+            ipcRenderer.invoke('agents:listIgnoredCandidates'),
+        rescoreCandidate: (id: string): Promise<SerializedJobCandidate> =>
+            ipcRenderer.invoke('agents:rescoreCandidate', id),
+        rescoreCandidates: (ids: string[]): Promise<{ scored: number; errors: number }> =>
+            ipcRenderer.invoke('agents:rescoreCandidates', ids),
         importCandidate: (id: string): Promise<ApplicationRecord> =>
             ipcRenderer.invoke('agents:importCandidate', id),
         listRuns: (limit?: number): Promise<AgentRunRecord[]> =>
@@ -213,6 +266,32 @@ const api = {
     },
     shell: {
         openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+    },
+    inbox: {
+        testImap: (): Promise<{ ok: boolean; error?: string; inboxMessages?: number }> =>
+            ipcRenderer.invoke('inbox:testImap'),
+        sync: (): Promise<InboxSyncResult> => ipcRenderer.invoke('inbox:sync'),
+        list: (reviewStatus?: InboundReviewStatus): Promise<InboundEmailDto[]> =>
+            ipcRenderer.invoke('inbox:list', reviewStatus),
+        applySuggestion: (payload: {
+            inboundId: string;
+            applicationId: string;
+            status: ApplicationStatus;
+            note: string;
+        }): Promise<{ ok: boolean; application?: ApplicationRecord; error?: string }> =>
+            ipcRenderer.invoke('inbox:applySuggestion', payload),
+        dismiss: (inboundId: string): Promise<void> =>
+            ipcRenderer.invoke('inbox:dismiss', inboundId),
+        reassign: (payload: {
+            inboundId: string;
+            applicationId: string | null;
+            status: ApplicationStatus | 'other' | null;
+        }): Promise<void> => ipcRenderer.invoke('inbox:reassign', payload),
+        setReviewStatus: (
+            inboundId: string,
+            status: InboundReviewStatus,
+        ): Promise<void> =>
+            ipcRenderer.invoke('inbox:setReviewStatus', inboundId, status),
     },
     on: (channel: string, handler: (...args: any[]) => void) => {
         const wrapped = (_evt: unknown, ...args: any[]) => handler(...args);

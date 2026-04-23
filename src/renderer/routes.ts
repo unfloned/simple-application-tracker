@@ -2,6 +2,7 @@ export const ROUTES = {
     dashboard: '/dashboard',
     applications: '/applications',
     candidates: '/candidates',
+    inbox: '/inbox',
     agents: '/agents',
     chat: '/chat',
     analytics: '/analytics',

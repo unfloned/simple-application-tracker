@@ -15,10 +15,18 @@ export interface UserProfile {
     smtpFromName: string;
     /** Free-form instruction that tunes how the LLM drafts cover emails. */
     emailInstruction: string;
+    /** IMAP for reading incoming mail. User/password can differ from SMTP. */
+    imapHost: string;
+    imapPort: number;
+    imapSecure: boolean;
+    imapUser: string;
+    imapPassword: string;
 }
 
-interface StoredProfile extends Omit<UserProfile, 'smtpPassword'> {
+interface StoredProfile
+    extends Omit<UserProfile, 'smtpPassword' | 'imapPassword'> {
     smtpPasswordEnc: string;
+    imapPasswordEnc: string;
     /** Legacy plaintext field from pre-0.4.0. Only present when migration runs. */
     smtpPassword?: string;
 }
@@ -63,6 +71,11 @@ const store = new Store<StoredProfile>({
         smtpPasswordEnc: '',
         smtpFromName: '',
         emailInstruction: '',
+        imapHost: '',
+        imapPort: 993,
+        imapSecure: true,
+        imapUser: '',
+        imapPasswordEnc: '',
     },
 });
 
@@ -97,6 +110,11 @@ export function getUserProfile(): UserProfile {
         smtpPassword: decryptPassword(store.get('smtpPasswordEnc')),
         smtpFromName: store.get('smtpFromName'),
         emailInstruction: store.get('emailInstruction') ?? '',
+        imapHost: store.get('imapHost') ?? '',
+        imapPort: store.get('imapPort') ?? 993,
+        imapSecure: store.get('imapSecure') ?? true,
+        imapUser: store.get('imapUser') ?? '',
+        imapPassword: decryptPassword(store.get('imapPasswordEnc') ?? ''),
     };
 }
 
@@ -105,6 +123,8 @@ export function setUserProfile(profile: Partial<UserProfile>): UserProfile {
         if (value === undefined) continue;
         if (key === 'smtpPassword') {
             store.set('smtpPasswordEnc', encryptPassword(String(value)));
+        } else if (key === 'imapPassword') {
+            store.set('imapPasswordEnc', encryptPassword(String(value)));
         } else {
             const storedKey = key as keyof StoredProfile;
             store.set(storedKey, value as StoredProfile[typeof storedKey]);

@@ -14,4 +14,17 @@ export {
 } from './applications';
 export { listApplicationEvents, listEventsForApplication } from './events';
 export { listEmailsForApplication, logSentEmail } from './emails';
+export {
+    insertInboundEmail,
+    getInboundEmailByMessageId,
+    listInboundEmails,
+    setInboundReviewStatus,
+    updateInboundSuggestion,
+    getLatestInboundReceivedAt,
+} from './inbox';
+export type {
+    InboundEmailInput,
+    InboundEmailRow,
+    InboundReviewStatus,
+} from './inbox';
 export type { ApplicationEventRow, ApplicationRow, EmailLogRow } from './types';

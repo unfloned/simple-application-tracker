@@ -90,6 +90,7 @@ export function initDatabase(): void {
     runApplicationsMigrations(db);
     createEventsTable(db);
     createEmailLogTable(db);
+    createInboundEmailsTable(db);
     backfillSeedEvents(db);
 }
 
@@ -175,6 +176,34 @@ function createEmailLogTable(db: Database.Database): void {
         );
         CREATE INDEX IF NOT EXISTS email_log_app_idx
             ON email_log(applicationId, sentAt);
+    `);
+}
+
+function createInboundEmailsTable(db: Database.Database): void {
+    // messageId is the RFC822 header, unique per email. We store the raw
+    // fields plus the LLM classification result and a review status so the
+    // user can approve, dismiss or reassign each suggestion.
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS inbound_emails (
+            id TEXT PRIMARY KEY,
+            messageId TEXT NOT NULL UNIQUE,
+            fromAddress TEXT NOT NULL DEFAULT '',
+            fromName TEXT NOT NULL DEFAULT '',
+            subject TEXT NOT NULL DEFAULT '',
+            bodyText TEXT NOT NULL DEFAULT '',
+            receivedAt TEXT NOT NULL,
+            fetchedAt TEXT NOT NULL,
+            suggestedApplicationId TEXT,
+            suggestedStatus TEXT,
+            suggestedNote TEXT NOT NULL DEFAULT '',
+            confidence INTEGER NOT NULL DEFAULT 0,
+            reviewStatus TEXT NOT NULL DEFAULT 'pending',
+            FOREIGN KEY (suggestedApplicationId) REFERENCES applications(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS inbound_emails_review_idx
+            ON inbound_emails(reviewStatus, receivedAt);
+        CREATE INDEX IF NOT EXISTS inbound_emails_app_idx
+            ON inbound_emails(suggestedApplicationId);
     `);
 }
 

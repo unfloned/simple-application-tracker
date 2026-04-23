@@ -5,6 +5,7 @@ import { registerBackupIpc } from './backup';
 import { registerChatIpc } from './chat';
 import { registerEmailIpc } from './email';
 import { registerExportIpc } from './export';
+import { registerInboxIpc } from './inbox';
 import { registerLlmIpc } from './llm';
 import { registerProfileIpc } from './profile';
 import { registerShellIpc } from './shell';
@@ -20,4 +21,5 @@ export function registerIpcHandlers(getWindow: () => BrowserWindow | null): void
     registerChatIpc(ipcMain, getWindow);
     registerShellIpc(ipcMain);
     registerExportIpc(ipcMain);
+    registerInboxIpc(ipcMain);
 }

@@ -133,9 +133,10 @@ export function Sidebar({ applicationsCount, candidatesCount }: Props) {
         { path: ROUTES.dashboard,    tag: 'INBOX',  labelKey: 'nav.inbox',           shortcut: '⌘1' },
         { path: ROUTES.applications, tag: 'APPS',   labelKey: 'tabs.applications',   count: applicationsCount,          shortcut: '⌘2' },
         { path: ROUTES.candidates,   tag: 'CAND',   labelKey: 'tabs.candidates',     count: candidatesCount,            shortcut: '⌘3' },
-        { path: ROUTES.agents,       tag: 'AGENT',  labelKey: 'nav.agents',          shortcut: '⌘4' },
-        { path: ROUTES.chat,         tag: 'ASSIST', labelKey: 'nav.chat',            shortcut: '⌘5' },
-        { path: ROUTES.analytics,    tag: 'ANLY',   labelKey: 'nav.analytics',       shortcut: '⌘6' },
+        { path: ROUTES.inbox,        tag: 'MAIL',   labelKey: 'nav.mail',            shortcut: '⌘4' },
+        { path: ROUTES.agents,       tag: 'AGENT',  labelKey: 'nav.agents',          shortcut: '⌘5' },
+        { path: ROUTES.chat,         tag: 'ASSIST', labelKey: 'nav.chat',            shortcut: '⌘6' },
+        { path: ROUTES.analytics,    tag: 'ANLY',   labelKey: 'nav.analytics',       shortcut: '⌘7' },
     ];
 
     const isActive = (path: string) =>

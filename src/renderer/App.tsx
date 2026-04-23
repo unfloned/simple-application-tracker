@@ -20,6 +20,7 @@ import { AgentsPage } from './pages/AgentsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { CandidatesPage } from './pages/CandidatesPage';
 import { ChatPage } from './pages/ChatPage';
+import { InboxPage } from './pages/InboxPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ROUTES } from './routes';
 
@@ -246,9 +247,10 @@ export function App() {
         ['mod+1', () => navigate(ROUTES.dashboard)],
         ['mod+2', () => navigate(ROUTES.applications)],
         ['mod+3', () => navigate(ROUTES.candidates)],
-        ['mod+4', () => navigate(ROUTES.agents)],
-        ['mod+5', () => navigate(ROUTES.chat)],
-        ['mod+6', () => navigate(ROUTES.analytics)],
+        ['mod+4', () => navigate(ROUTES.inbox)],
+        ['mod+5', () => navigate(ROUTES.agents)],
+        ['mod+6', () => navigate(ROUTES.chat)],
+        ['mod+7', () => navigate(ROUTES.analytics)],
         ['escape', () => {
             if (formOpen) setFormOpen(false);
         }],
@@ -445,6 +447,15 @@ export function App() {
                                     navigate(ROUTES.applications);
                                 }}
                                 onGoToAgents={() => navigate(ROUTES.agents)}
+                            />
+                        }
+                    />
+                    <Route
+                        path={ROUTES.inbox}
+                        element={
+                            <InboxPage
+                                applications={rows}
+                                onApplicationUpdated={refresh}
                             />
                         }
                     />
