@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react';
 import type { ApplicationRecord } from '../../preload/index';
 import { EmailSendDialog } from './EmailSendDialog';
 import { DEFAULTS } from './application-form/constants';
+import { FitBar } from './application-form/FitBar';
 import { FormFooter } from './application-form/FormFooter';
 import { FormHeader } from './application-form/FormHeader';
 import { UrlExtractor } from './application-form/UrlExtractor';
 import { ContactSection } from './application-form/sections/ContactSection';
 import { CoreSection } from './application-form/sections/CoreSection';
-import { FitSection } from './application-form/sections/FitSection';
 import { InterviewsSection } from './application-form/sections/InterviewsSection';
 import { NotesSection } from './application-form/sections/NotesSection';
 import { RequirementsSection } from './application-form/sections/RequirementsSection';
@@ -86,7 +86,6 @@ export function ApplicationFormModal({
         if (v.contactName || v.contactEmail || v.contactPhone) open.push('contact');
         if (v.jobDescription || v.notes || v.tags) open.push('notes');
         if (v.interviews.length) open.push('interviews');
-        if (v.matchScore > 0) open.push('fit');
         return open;
     })();
 
@@ -116,6 +115,7 @@ export function ApplicationFormModal({
             <div style={{ flex: 1, overflow: 'auto', padding: '18px 22px' }}>
                 <form onSubmit={form.onSubmit(submit)}>
                     <Stack gap="md">
+                        <FitBar form={form} />
                         <UrlExtractor form={form} />
 
                         <Accordion
@@ -130,7 +130,6 @@ export function ApplicationFormModal({
                             <ContactSection form={form} />
                             <InterviewsSection form={form} />
                             <NotesSection form={form} />
-                            <FitSection form={form} />
                         </Accordion>
                     </Stack>
                 </form>
