@@ -588,6 +588,6 @@ export const en = {
         reviewApplied: 'Applied',
         reviewDismissed: 'Dismissed',
     },
-} as const;
+};
 
 export type TranslationKeys = typeof en;
